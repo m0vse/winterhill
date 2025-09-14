@@ -1,12 +1,12 @@
 ![winterhill banner](/configs/WH_Title.jpg)
 # WinterHill
-Production Build for the WinterHill Multi-channel DATV Receiver based on a Raspberry Pi 4 as described here: https://wiki.batc.org.uk/WinterHill_Receiver_Project
+Development Build for the WinterHill Multi-channel DATV Receiver based on a Raspberry Pi 4/CM4 as described here: https://wiki.batc.org.uk/WinterHill_Receiver_Project
 
 # Installation
 
 The installation procedure is fully described in the Installation Manual that you will find here: https://wiki.batc.org.uk/WinterHill_Receiver_Project#Documentation
 
-The instructions are based on the old Raspios Buster Desktop which can be downloaded from here: https://downloads.raspberrypi.org/raspios_oldstable_armhf/images/raspios_oldstable_armhf-2022-04-07/2022-04-04-raspios-buster-armhf.img.xz .  More recent software versions (Bullseye or Bookworm) will not work.
+The instructions are based on the old Raspios Buster Desktop which can be downloaded from here: https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2025-05-13/2025-05-13-raspios-bookworm-arm64.img.xz.
 
 - Unzip the image (using 7zip as it is a .xz compressed file) and then transfer it to a Micro-SD Card using Win32diskimager https://sourceforge.net/projects/win32diskimager/
 
@@ -19,18 +19,8 @@ The instructions are based on the old Raspios Buster Desktop which can be downlo
 - Log in (user: pi, password: raspberry) then cut and paste the following code in, one line at a time:
 
 ```sh
-wget https://raw.githubusercontent.com/BritishAmateurTelevisionClub/winterhill/main/install_winterhill.sh
+wget https://raw.githubusercontent.com/m0vse/winterhill/main/install_winterhill.sh
 chmod +x install_winterhill.sh
 ./install_winterhill.sh
 ```
 After reboot, resume the detailed instructions.
-
-# Advanced notes
-
-To load the development version, cut and paste in the following lines:
-
-```sh
-wget https://raw.githubusercontent.com/davecrump//winterhill/main/install_winterhill.sh
-chmod +x install_winterhill.sh
-./install_winterhill.sh -d
-```

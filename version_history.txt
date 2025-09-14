@@ -1,3 +1,6 @@
+202509140
+Add provisional support for bookworm
+
 202108240
 Allow system update release info change
 

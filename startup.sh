@@ -21,6 +21,9 @@ cd /home/pi
 
 #### Now Start WinterHill as set in the winterhill.ini file ####
 
+#### Root needs to be granted access for xdotool to work under su
+xhost +si:localuser:root
+
 grep -q 'BOOT = local' winterhill/winterhill.ini
 if [ $? == 0 ]; then
   lxterminal -t "whlaunch-local-3v20.sh" --working-directory=/home/pi/winterhill/RPi-3v20/ -e ./whlaunch-local-3v20.sh

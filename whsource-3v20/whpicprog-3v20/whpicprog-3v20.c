@@ -1,3 +1,4 @@
+#include <stdint.h>
 #define VERSION "whpicprog-3v20"
 
 /* -------------------------------------------------------------------------------------------------- */
@@ -686,7 +687,7 @@ int32 main (int argc, char* argv[])
 				{
 					printf ("\r\n    ") ;
 				}
-				rpiaddress = (uint32*) (x * PAGEBYTES + (uint32)(&flashbytes)) ;
+				rpiaddress = (uint32*)((uint8*)flashbytes + (size_t)x * PAGEBYTES) ;
 				picaddress = x * PAGEBYTES / 2 ;                       	 	// 16 bit words
 				printf ("%06X  ", picaddress) ;
 				displaycount++ ;
@@ -712,8 +713,8 @@ int32 main (int argc, char* argv[])
 				{
 					printf ("\r\n    ") ;
 				}
-				rpiaddress  = (uint32*) (x * PAGEBYTES + (uint32)(&flashbytes)) ;
-				rpiaddress2 = (uint32*) (x * PAGEBYTES + (uint32)(&flashbytes2)) ;
+				rpiaddress  = (uint32*)((uint8*)flashbytes + (size_t)x * PAGEBYTES) ;
+				rpiaddress2 = (uint32*)((uint8*)flashbytes2 + (size_t)x * PAGEBYTES) ;
 				picaddress  = x * PAGEBYTES / 2 ;                      	// 16 bit words
 				icsp (readwords,rpiaddress2, picaddress,PAGEBYTES / 4, 0) ; // 128 instructions @ 4 bytes per instruction
 				printf ("%06X", picaddress) ;
@@ -1090,12 +1091,12 @@ uint32* setup_io_map (uint32 offset)									// return a pointer to the required
 {
 	int			mem_fd ;
 	void		*peri_map ;	
-	int			io_base ;
+	off_t		io_base ;
 	uint32		bcm_peri_base ;
 
 	
     bcm_peri_base 	= bcm_host_get_peripheral_address() ;				// get the PIC peripheral base address
-	io_base			= bcm_peri_base + offset ;
+	io_base = (off_t)bcm_peri_base + (off_t)offset;
 	                
 /* open /dev/mem */
 
@@ -1120,9 +1121,9 @@ uint32* setup_io_map (uint32 offset)									// return a pointer to the required
 
     close (mem_fd) ; 		  							// No need to keep mem_fd open after mmap
 
-    if ((int)peri_map == -1)
+    if (peri_map == MAP_FAILED)
     {
-       printf("mmap error %d \r\n", (int)peri_map) ;	// errno also set!
+       fprintf(stderr,"mmap failed (errno=%d) $s\r\n", errno, strerror(errno)) ;	// errno also set!
        return (0) ;
     }
 

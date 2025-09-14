@@ -38,6 +38,9 @@
 #include <ifaddrs.h>
 #include <time.h>
 
+#include <stdint.h>
+static inline uint32_t u32_absdiff(uint32_t a, uint32_t b) { return (a > b) ? (a - b) : (b - a); }
+
 #define CR		13
 #define LF		10
 #define TAB		9
@@ -1583,7 +1586,7 @@ int main (int argc, char *argv[])
 									system (temps) ;										// send STOP to VLC
 								}
 							}
-							if ((rx & 1) && (abs(freqx - qo100beaconfreq) <= 200))	
+							if ((rx & 1) && (u32_absdiff((uint32)freqx, qo100beaconfreq) <= 200))	
 							{
 								rcv[rx].qo100mode     = QO100BEACON ;
 								freqx 			      = qo100beaconfreq ;
@@ -1601,8 +1604,11 @@ int main (int argc, char *argv[])
 							rcv[rx].requestedfreq   = freqx ;                            
 							rcv[rx].requestedloc 	= locx ;
 							if (freqx != 0)
-							{                            
-								rcv[rx].hardwarefreq	= abs (rcv[rx].requestedfreq - rcv[rx].requestedloc) ;
+							{
+								rcv[rx].hardwarefreq = (rcv[rx].requestedfreq > rcv[rx].requestedloc)
+						                        ? (rcv[rx].requestedfreq - rcv[rx].requestedloc)
+                        						: (rcv[rx].requestedloc - rcv[rx].requestedfreq);
+
 								if (rcv[rx].qo100mode == QO100BAND)
 								{
 									rcv[rx].hardwarefreq -= rcv[rx].qo100locerror ;
@@ -2703,9 +2709,11 @@ static	uint32			counter ;
 					}
 				}
 			}
-
-			strncpy (temps3, rcv[rx].textinfos[STATUS_SERVICE_NAME], sizeof(temps3)-1) ;
-		    temps3 [15] = 0 ;
+    			const char *src = rcv[rx].textinfos[STATUS_SERVICE_NAME];
+    			size_t n = sizeof(temps3) - 1;
+    			size_t len = strnlen(src, n);
+    			memcpy(temps3, src, len);
+    			temps3[len] = 0;
 
 			y = STATUS_TS_NULL_PERCENTAGE ;
 			sprintf 
@@ -3397,7 +3405,7 @@ void* tsproc_loop (void* dummy)
 										length2 = 15 ;
 									}
 									y = STATUS_SERVICE_PROVIDER_NAME ; 
-									strncpy (rcv[rx].textinfos[y], (void*)sdtp, length2) ; // copy the provider name
+                                                                        memcpy(rcv[rx].textinfos[y], (void*)sdtp, length2);
 									rcv[rx].textinfos[y][length2] = 0 ;			// terminate the string
 									sdtp += length ;							// point to the service name length 
 									length = *sdtp++ ;							// service name length 
@@ -3773,15 +3781,16 @@ void setup_eit (void *packet, uint32 rx, char* info)
 
     *q = (uint8) (p - q - 1) ;
     
-    eitp->sectionlength = (uint8) ((uint32)p - (uint) &eitp->sectionlength - 1 + 4) ;
-    
+    eitp->sectionlength = (uint8)((uintptr_t)p - (uintptr_t)&eitp->sectionlength - 1 + 4);
+
+
     utempi = calculateCRC32 ((uint8*)&eitp->tableid,eitp->sectionlength-1) ;
     *p++ = (uint8) ((utempi >> 24) & 0xff) ;
     *p++ = (uint8) ((utempi >> 16) & 0xff) ;
     *p++ = (uint8) ((utempi >>  8) & 0xff) ;
     *p++ = (uint8) ((utempi >>  0) & 0xff) ;
 
-    memset (p, 0xff, 188-((uint)p-(uint)eitp)) ;	// pad out the rest of the packet
+    memset(p, 0xff, (size_t)(188 - ((uint8_t*)p - (uint8_t*)eitp)));
 }
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -3899,7 +3908,7 @@ void setup_eit2 (void *packet, uint32 rx, char* info)
 
     *q = (uint8) (p - q - 1) ;
     
-    eitp->sectionlength = (uint8) ((uint32)p - (uint) &eitp->sectionlength - 1 + 4) ;
+    eitp->sectionlength = (uint8)((uintptr_t)p - (uintptr_t)&eitp->sectionlength - 1 + 4);
     
     utempi = calculateCRC32 ((uint8*)&eitp->tableid,eitp->sectionlength-1) ;
     *p++ = (uint8) ((utempi >> 24) & 0xff) ;
@@ -3907,7 +3916,7 @@ void setup_eit2 (void *packet, uint32 rx, char* info)
     *p++ = (uint8) ((utempi >>  8) & 0xff) ;
     *p++ = (uint8) ((utempi >>  0) & 0xff) ;
 
-    memset (p, 0xff, 188-((uint)p-(uint)eitp)) ;	// pad out the rest of the packet
+    memset(p, 0xff, (size_t)(188 - ((uint8_t*)p - (uint8_t*)eitp)));	// pad out the rest of the packet
 }
 
 

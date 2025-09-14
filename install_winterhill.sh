@@ -12,7 +12,7 @@ if [ $? != 0 ]; then
 fi
 
 # Check which source needs to be loaded
-GIT_SRC="BritishAmateurTelevisionClub"
+GIT_SRC="m0vse"
 GIT_SRC_FILE=".wh_gitsrc"
 
 if [ "$1" == "-d" ]; then
@@ -111,7 +111,7 @@ echo "---- Building spi driver for install -----"
 echo "------------------------------------------"
 echo
 cd /home/pi/winterhill/whsource-3v20/whdriver-3v20
-make
+sudo make
 if [ $? != 0 ]; then
   echo "------------------------------------------"
   echo "- Failed to build the WinterHill Driver --"
@@ -120,7 +120,7 @@ if [ $? != 0 ]; then
   exit
 fi
 
-# sudo rmmod whdriver-2v22.ko  # Use in future update scripts
+sudo rmmod whdriver-3v20.ko  # Use in future update scripts
 
 sudo insmod whdriver-3v20.ko
 if [ $? != 0 ]; then
@@ -152,7 +152,19 @@ echo "------------------------------------------------"
 echo "---- Set up to load the spi driver at boot -----"
 echo "------------------------------------------------"
 echo
-sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-3v20/whdriver-3v20\nsudo insmod whdriver-3v20.ko\nexit 0" /etc/rc.local
+if [ -f "/etc/rc.local" ]; then
+  sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-3v20/whdriver-3v20\nsudo insmod whdriver-3v20.ko\nexit 0" /etc/rc.local
+else
+  sudo tee /etc/rc.local > /dev/null  << EOL
+#!/bin/sh -e
+cd /home/pi/winterhill/whsource-3v20/whdriver-3v20
+sudo insmod whdriver-3v20.ko
+exit 0
+EOL
+
+  sudo chmod a+x /etc/rc.local
+  sudo systemctl status rc-local.service
+fi
 
 echo "---------------------------------------------------"
 echo "---- Building the main WinterHill Application -----"
@@ -224,7 +236,7 @@ echo INSTALL Reached end of install script >> /home/pi/winterhill/whlog.txt
 
 sleep 1
 
-sudo reboot now
+#sudo reboot now
 exit
 
 

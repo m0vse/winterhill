@@ -1,3 +1,4 @@
+#include <asm/barrier.h>
 #define VERSION "whdriver-3v20"		// use SPI5 as the dummy
 									// BOARD_RESET is only driven low
 
@@ -27,6 +28,8 @@
 #include <linux/delay.h>      	
 #include <linux/timer.h>
 #include <linux/jiffies.h>
+#include <linux/io.h>
+#include <linux/string.h>
 
  #include <linux/timer.h>
  #include <linux/jiffies.h>
@@ -184,11 +187,13 @@ static volatile int		rxbuffersfetchedB ;
 
 static int     			dev_open	(struct inode *, struct file *);
 static int     			dev_release	(struct inode *, struct file *);
-static ssize_t 			dev_read	(struct file *, char *, size_t, loff_t *);
-static ssize_t 			dev_write	(struct file *, const char *, size_t, loff_t *);
+static ssize_t 			dev_read	(struct file *, char __user *, size_t, loff_t *);
+static ssize_t 			dev_write	(struct file *, const char __user *, size_t, loff_t *);
 
-static irq_handler_t 	picready_handler 	(unsigned int irq, void *dev_id, struct pt_regs *regs) ;
-static irq_handler_t 	spi_handler 		(unsigned int irq, void *dev_id, struct pt_regs *regs) ;
+
+static void mytimer_handler (struct timer_list *data);
+static irqreturn_t picready_handler (int irq, void *dev_id);
+static irqreturn_t spi_handler (int irq, void *dev_id);
 
 ///static uint32			gpioget 			(uint32) ;
 static void					gpioset 			(uint32, uint32) ;
@@ -212,7 +217,7 @@ static struct file_operations fops =
 
 // 100ms timer tick handler
 
-void mytimer_handler (struct timer_list *data)
+static void mytimer_handler (struct timer_list *data)
 {
 	struct task_struct		*temp ;
 	
@@ -254,7 +259,7 @@ static int __init winterhill_init (void)
  
 // Register the device class
 
-   winterhillClass = class_create (THIS_MODULE, CLASS_NAME);
+   winterhillClass = class_create ( CLASS_NAME);
    if (IS_ERR(winterhillClass))						   		// Check for error and clean up if there is
    {
       unregister_chrdev (majorNumber, DEVICE_NAME);
@@ -342,22 +347,22 @@ static int dev_open (struct inode *inodep, struct file *filep)
 //	set up the virtual addresses
 	
 		gpio = ioremap (GPIO_BASE, PAGE_SIZE) ;
-   		printk (KERN_INFO "winterhill: GPIO virtual address is 0x%08X\n", (uint32)gpio) ;
+   		printk (KERN_INFO "GPIO virtual address is %px", gpio) ;
 	
 		spiA = ioremap (SPIA_BASE, PAGE_SIZE) ;
-   		printk (KERN_INFO "winterhill: SPIA virtual address is 0x%08X\n", (uint32)spiA) ;
+   		printk (KERN_INFO "SPIA virtual address is %px", spiA) ;
    		printk (KERN_INFO "winterhill: SPIA[DC] is 0x%08X\n", spiA[5]) ;
 	
 		spiB = ioremap (SPIB_BASE, PAGE_SIZE) ;
-   		printk (KERN_INFO "winterhill: SPIB virtual address is 0x%08X\n", (uint32)spiB) ;
+   		printk (KERN_INFO "SPIB virtual address is %px", spiB) ;
    		printk (KERN_INFO "winterhill: SPIB[DC] is 0x%08X\n", spiB[5]) ;
 
 		pactl = ioremap (PACTL_BASE, PAGE_SIZE) ;
-   		printk (KERN_INFO "winterhill: GPIO virtual address is 0x%08X\n", (uint32)gpio) ;
+   		printk (KERN_INFO "GPIO virtual address is %px", gpio) ;
 
 // reset the board
 		
-		asm (" dmb") ;
+		mb();
 
 		gpioset    				(BOARD_RESET, 0) ;
 		gpioconfig 				(BOARD_RESET, FSEL_OUTPUT) ;
@@ -368,7 +373,7 @@ static int dev_open (struct inode *inodep, struct file *filep)
 
 // configure the GPIO		
 
-		asm (" dmb") ;
+		mb();
 
 		gpioconfig (SPISS_A,	FSEL_OUTPUT) ;
 		gpioconfig (SPICLK_A,	ALT_A) ;
@@ -376,13 +381,13 @@ static int dev_open (struct inode *inodep, struct file *filep)
 		gpioconfig (SPIRDY_A,	FSEL_INPUT) ;
 		gpioset	   (SPISS_A,	1) ;
 	
-		asm (" dmb") ;
+		mb();
 
 		spiA [SPI_CS] 			= 0 ;													// reset
 		spiA [SPI_CLK]			= CLOCKDIV_SPI ;										// clock divider to give 16MHz at max RPI4 revs	
 		spiA [SPI_CS]			= CLEARTX_SPI | CLEARRX_SPI | CPOL_SPI ;				// clear fifos and set clock / data polarity
 
- 		asm (" dmb") ;
+ 		mb();
 
 		gpioconfig (SPISS_B,	FSEL_OUTPUT) ;
 		gpioconfig (SPICLK_B,	ALT_B) ;
@@ -390,7 +395,7 @@ static int dev_open (struct inode *inodep, struct file *filep)
 		gpioconfig (SPIRDY_B,	FSEL_INPUT) ;
 		gpioset	   (SPISS_B,	1) ;
 
- 		asm (" dmb") ;
+ 		mb();
 
 		spiB [SPI_CS] 			= 0 ;													// reset
 		spiB [SPI_CLK]			= CLOCKDIV_SPI ;										// clock divider to give 16MHz at max RPI4 revs	
@@ -403,7 +408,7 @@ static int dev_open (struct inode *inodep, struct file *filep)
 	   	result = request_irq						// This next call requests an interrupt line
   		(
 			spiAreadyintno,       					// The interrupt number requested
-	        (irq_handler_t) picready_handler, 		// The pointer to the handler function below
+	        picready_handler, 		// The pointer to the handler function below
     	    IRQF_TRIGGER_FALLING,					// Interrupt on rising edge (button press, not release)
         	"whdriver-2v40_picA_handler",			// Used in /proc/interrupts to identify the owner
 	        NULL                 					// The *dev_id for shared interrupt lines, NULL is okay
@@ -415,7 +420,7 @@ static int dev_open (struct inode *inodep, struct file *filep)
 	   	result = request_irq						// This next call requests an interrupt line
   		(
 			spiBreadyintno,       					// The interrupt number requested
-	        (irq_handler_t) picready_handler, 		// The pointer to the handler function below
+	        picready_handler, 		// The pointer to the handler function below
     	    IRQF_TRIGGER_FALLING,					// Interrupt on rising edge (button press, not release)
         	"whdriver-2v40_picB_handler",			// Used in /proc/interrupts to identify the owner
 	        NULL                 					// The *dev_id for shared interrupt lines, NULL is okay
@@ -426,7 +431,7 @@ static int dev_open (struct inode *inodep, struct file *filep)
 	   	result = request_irq						// This next call requests an interrupt line
   		(
 			spi5interruptnumber, 					// The interrupt number requested
-	        (irq_handler_t) spi_handler, 			// The pointer to the handler function below
+	        spi_handler, 			// The pointer to the handler function below
     	    IRQF_TRIGGER_HIGH | IRQF_SHARED,		// Interrupt when high
         	"whdriver-2v40_spi_handler",			// Used in /proc/interrupts to identify the owner
 	        DEVICE_NAME         					// The *dev_id for shared interrupt lines, NULL is okay
@@ -436,11 +441,11 @@ static int dev_open (struct inode *inodep, struct file *filep)
 		stateA = 1 ;
 		stateB = 1 ;
 
- 		asm (" dmb") ;
+ 		mb();
 
 		spiA [SPI_CS] |= INTD_SPI | INTR_SPI ;		// enable INTD and INTR interrupts
 
- 		asm (" dmb") ;
+ 		mb();
 
 		spiB [SPI_CS] |= INTD_SPI | INTR_SPI ;		// enable INTD and INTR interrupts
 
@@ -469,13 +474,13 @@ static int dev_open (struct inode *inodep, struct file *filep)
  *  @param offset The offset if required
 */
 
- static ssize_t dev_read (struct file *filep, char *buffer, size_t len, loff_t *offset)
+ static ssize_t dev_read (struct file *filep, char __user *buffer, size_t len, loff_t *offset)
  {
    		int 		error_count = 0 ;
 static	int			toggleAB ;
 		int32		temp ;
 
-	asm (" dmb") ;
+	mb();
 
 	timerticks = 0 ;								// reset the timeout
 
@@ -485,11 +490,11 @@ static	int			toggleAB ;
 	   	return (-4) ;
 	}	
 
-	asm (" dmb") ;
+	mb();
 
 	if (len != RXBUFFERSIZE)						// requested length must be RXBUFFERSIZE
 	{
-	   	printk (KERN_INFO "winterhill: len = %d\n", len);
+	   	printk (KERN_INFO "winterhill: len = %zu\n", len);
 		return (-1) ;
 	}
 
@@ -503,7 +508,7 @@ static	int			toggleAB ;
 		schedule() ;		
 	}
 
-	asm (" dmb") ;
+	mb();
 
 	if (readstatus)
 	{
@@ -523,7 +528,7 @@ static	int			toggleAB ;
 				{
 				   	printk (KERN_INFO "winterhill: error_count B = %d\n", error_count);		
 				}
-				asm (" dmb") ;
+				mb();
 
 				rxbuffersfetchedB++ ;
 				rxbuffindexoutB++ ;
@@ -544,7 +549,7 @@ static	int			toggleAB ;
 				   	printk (KERN_INFO "winterhill: error_count A = %d\n", error_count);		
 				}
 	
-				asm (" dmb") ;
+				mb();
 	
 				rxbuffersfetchedA++ ;
 				rxbuffindexoutA++ ;
@@ -557,7 +562,7 @@ static	int			toggleAB ;
 		}
 	}
 	
-	asm (" dmb") ;
+	mb();
 		
 	return (RXBUFFERSIZE) ;
 }
@@ -573,7 +578,7 @@ static	int			toggleAB ;
  *  @param offset The offset if required
 */
  
-static ssize_t dev_write (struct file *filep, const char *buffer, size_t len, loff_t *offset)
+static ssize_t dev_write (struct file *filep, const char __user *buffer, size_t len, loff_t *offset)
 {
 	if (len == 4)
 	{
@@ -608,20 +613,20 @@ static int dev_release (struct inode *inodep, struct file *filep)
 		}
 		debug0 = spiA [SPI_CS] ;
 
- 		asm (" dmb") ;
+ 		mb();
 
 		spiB[SPI_CS] &= ~(INTD_SPI | INTR_SPI | (3 * CLEAR_SPI) | TA_SPI) ;	// disable INTD and INTR interrupts and TA
 
- 		asm (" dmb") ;
+ 		mb();
 
 		spiA[SPI_CS] &= ~(INTD_SPI | INTR_SPI | (3 * CLEAR_SPI) | TA_SPI) ;	// disable INTD and INTR interrupts and TA
 		msleep (100) ;
 
- 		asm (" dmb") ;
+ 		mb();
 
 		spiB[SPI_CS] &= ~(INTD_SPI | INTR_SPI | (3 * CLEAR_SPI) | TA_SPI) ;	// disable INTD and INTR interrupts and TA
 
- 		asm (" dmb") ;
+ 		mb();
 
 		spiA[SPI_CS] &= ~(INTD_SPI | INTR_SPI | (3 * CLEAR_SPI) | TA_SPI) ;	// disable INTD and INTR interrupts and TA
 		msleep (100) ;
@@ -684,20 +689,20 @@ static int dev_release (struct inode *inodep, struct file *filep)
 			sleeping_task = 0 ;
 		}
 
- 		asm (" dmb") ;
+ 		mb();
 		debug0 = spiA [SPI_CS] ;
- 		asm (" dmb") ;
+ 		mb();
 		spiB[SPI_CS] &= ~(INTD_SPI | INTR_SPI | (3 * CLEAR_SPI) | TA_SPI) ;	// disable INTD and INTR interrupts and TA
- 		asm (" dmb") ;
+ 		mb();
 		spiA[SPI_CS] &= ~(INTD_SPI | INTR_SPI | (3 * CLEAR_SPI) | TA_SPI) ;	// disable INTD and INTR interrupts and TA
 
 		msleep (100) ;
 
- 		asm (" dmb") ;
+ 		mb();
 		spiB[SPI_CS] &= ~(INTD_SPI | INTR_SPI | (3 * CLEAR_SPI) | TA_SPI) ;	// disable INTD and INTR interrupts and TA
- 		asm (" dmb") ;
+ 		mb();
 		spiA[SPI_CS] &= ~(INTD_SPI | INTR_SPI | (3 * CLEAR_SPI) | TA_SPI) ;	// disable INTD and INTR interrupts and TA
- 		asm (" dmb") ;
+ 		mb();
 
 		msleep (100) ;
 
@@ -729,28 +734,28 @@ static int dev_release (struct inode *inodep, struct file *filep)
    	printk				(KERN_INFO "winterhill: Driver removed from the kernel\n") ;
 }
 
-static irq_handler_t picready_handler (unsigned int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t picready_handler (int irq, void *dev_id)
 {
 	uint32			handled ;
 	uint32			gplev ;
 
 	handled = 0 ;
 
-	asm (" dmb") ;
+	mb();
 
 	gplev = gpio[GPLEV0] ;
 
-	asm (" dmb") ;
+	mb();
 
 	if (spiAptr == 0)
 	{
- 		asm (" dmb") ;
+ 		mb();
 
 		if ((gplev & READYMASK_A) == 0)
 		{
 			spiAtxcount 	= 192 ;
 			spiArxcount 	= 192 ;
-	 		asm (" dmb") ;	 		
+	 		mb();	 		
 			spiAptr			= rxbuffersA [rxbuffindexinA] ;
 			spiAstart		= spiAptr ;
 			memset ((void*)spiAptr, 0xcd, RXBUFFERSIZE) ; /////////
@@ -760,9 +765,9 @@ static irq_handler_t picready_handler (unsigned int irq, void *dev_id, struct pt
 				rxbuffindexinA = 0 ;
 			}
 				
-	 		asm (" dmb") ;
+	 		mb();
 			gpio [GPCLR0]   = SSMASK_A ;						// SS low
- 			asm (" dmb") ;
+ 			mb();
 			spiA [SPI_CS]  |= TA_SPI ;							// enable a transfer
 			handled++ ;
 		}
@@ -770,12 +775,12 @@ static irq_handler_t picready_handler (unsigned int irq, void *dev_id, struct pt
 
 	if (spiBptr == 0)
 	{
- 		asm (" dmb") ;
+ 		mb();
 		if ((gplev & READYMASK_B) == 0)
 		{
 			spiBtxcount 	= 192 ;
 			spiBrxcount 	= 192 ;
- 			asm (" dmb") ;
+ 			mb();
 			spiBptr			= rxbuffersB [rxbuffindexinB] ;
 			spiBstart		= spiBptr ;
 			memset ((void*)spiBptr, 0xcd, RXBUFFERSIZE) ; /////////
@@ -785,37 +790,37 @@ static irq_handler_t picready_handler (unsigned int irq, void *dev_id, struct pt
 				rxbuffindexinB = 0 ;
 			}
 
- 			asm (" dmb") ;
+ 			mb();
 			gpio [GPCLR0]  = SSMASK_B ;							// SS low
- 			asm (" dmb") ;
+ 			mb();
 			spiB [SPI_CS] |= TA_SPI ;							// enable a transfer
 			handled++ ;
 		}
 	}
 
-	asm (" dmb") ;
+	mb();
 
 	if (handled)
 	{
-   		return ((irq_handler_t)IRQ_HANDLED) ;      				// Announce that the IRQ has been handled correctly
+   		return IRQ_HANDLED;      				// Announce that the IRQ has been handled correctly
    	}
    	else
 	{
-   		return ((irq_handler_t)IRQ_NONE) ;      				// Announce that the IRQ has been handled correctly
+   		return IRQ_NONE;      				// Announce that the IRQ has been handled correctly
    	}
 }
 
 
-static irq_handler_t spi_handler (unsigned int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t spi_handler (int irq, void *dev_id)
 {
 	uint32		spihandled ;
 	uint32		pactlstatus ;
 		
-	asm (" dmb") ;
+	mb();
 
 	pactlstatus = *pactl ;										// get the interrupt status for several peripherals
 
-	asm (" dmb") ;	
+	mb();	
 
 	spihandled = 0 ;
 	countspiinterrupts++ ;     	           	   
@@ -824,7 +829,7 @@ static irq_handler_t spi_handler (unsigned int irq, void *dev_id, struct pt_regs
 	{
 		if (spiAptr)							
 		{
-			asm (" dmb") ;
+			mb();
 		  	if (spiA[SPI_CS] & RXR_SPI)
 			{
 				spihandled++ ;
@@ -835,7 +840,7 @@ static irq_handler_t spi_handler (unsigned int irq, void *dev_id, struct pt_regs
 				}
 			}
 
-			asm (" dmb") ;
+			mb();
 			if (spiA[SPI_CS] & DONE_SPI)
 			{
 				stateA = 3 ;
@@ -850,24 +855,24 @@ static irq_handler_t spi_handler (unsigned int irq, void *dev_id, struct pt_regs
 							spiArxcount-- ;				
 						}					
 					}
-					asm (" dmb") ;
+					mb();
 					spiA[SPI_CS] &= ~TA_SPI ;							// disable transfer
-					asm (" dmb") ;
+					mb();
 					spiAptr = 0 ;
 					rxbuffersreadyA++ ;
-					asm (" dmb") ;
+					mb();
 					if (sleeping_task)
 					{
 						wake_up_process (sleeping_task) ;
 						sleeping_task = 0 ;
 					}
-		 			asm (" dmb") ;
+		 			mb();
 					gpio[GPSET0] = SSMASK_A ;							// SS high
 					stateA = 1 ;
 				}
 				else
 				{
-		 			asm (" dmb") ;
+		 			mb();
 					while (spiAtxcount && (spiA[SPI_CS] & TXD_SPI))			// room for tx data
 					{
 						spiA[SPI_FIFO] = 0xff ;								// dummy transmit byte
@@ -882,7 +887,7 @@ static irq_handler_t spi_handler (unsigned int irq, void *dev_id, struct pt_regs
 	{
 		if (spiBptr)
 		{
-			asm (" dmb") ;
+			mb();
 		  	if (spiB[SPI_CS] & RXR_SPI)
 			{
 				spihandled++ ;
@@ -893,7 +898,7 @@ static irq_handler_t spi_handler (unsigned int irq, void *dev_id, struct pt_regs
 				}
 			}
 
-			asm (" dmb") ;
+			mb();
 			if (spiB[SPI_CS] & DONE_SPI)
 			{
 				stateB = 3 ;
@@ -908,24 +913,24 @@ static irq_handler_t spi_handler (unsigned int irq, void *dev_id, struct pt_regs
 							spiBrxcount-- ;				
 						}					
 					}
-					asm (" dmb") ;
+					mb();
 					spiB[SPI_CS] &= ~TA_SPI ;							// disable transfer
-					asm (" dmb") ;
+					mb();
 					spiBptr = 0 ;
 					rxbuffersreadyB++ ;
-					asm (" dmb") ;
+					mb();
 					if (sleeping_task)
 					{
 						wake_up_process (sleeping_task) ;
 						sleeping_task = 0 ;
 					}
-					asm (" dmb") ;
+					mb();
 					gpio[GPSET0] = SSMASK_B ;							// SS high
 					stateB = 1 ;
 				}
 				else
 				{
-					asm (" dmb") ;
+					mb();
 					while (spiBtxcount && (spiB[SPI_CS] & TXD_SPI))			// room for tx data
 					{
 						spiB[SPI_FIFO] = 0xff ;								// dummy transmit byte
@@ -936,15 +941,15 @@ static irq_handler_t spi_handler (unsigned int irq, void *dev_id, struct pt_regs
 		}
   	}
 
-	asm (" dmb") ;
+	mb();
 
 	if (spihandled)
 	{
-   		return ((irq_handler_t)IRQ_HANDLED) ;      			// Announce that the IRQ has been handled correctly
+   		return IRQ_HANDLED;      			// Announce that the IRQ has been handled correctly
 	}
 	else
 	{
-   		return ((irq_handler_t)IRQ_NONE) ;      			// Announce that the IRQ has been handled correctly
+   		return IRQ_NONE;      			// Announce that the IRQ has been handled correctly
 	}
 }
 
@@ -955,7 +960,7 @@ static void gpioconfig (uint32 bcmportno, uint32 altfunction)
     uint32                    pos ;
     uint32                    temp ;
 
-	asm (" dmb") ;
+	mb();
     index                   = bcmportno / 10 ;                  // 10 gpio settings per word
     pos                     = (bcmportno - (index * 10)) * 3 ;  // get the bit position
     temp                    = gpio [GPFSEL0 + index] ;         	// get the function settings register
@@ -970,7 +975,7 @@ static uint32 gpioget (uint32 bcmbitno)
 {
     uint32      temp ;
     
-	asm (" dmb") ;
+	mb();
     temp    = gpio [GPLEV0] & (1 << bcmbitno) ;
     temp  	>>= bcmbitno ;
     return 	(temp) ;
@@ -979,7 +984,7 @@ static uint32 gpioget (uint32 bcmbitno)
 
 static void gpioset (uint32 bcmbitno, uint32 value)
 {
-	asm (" dmb") ;
+	mb();
     if (value)
     {
 	    gpio [GPSET0] = 1 << bcmbitno ;
@@ -999,4 +1004,3 @@ static void gpioset (uint32 bcmbitno, uint32 value)
 
 module_init (winterhill_init);
 module_exit (winterhill_exit);
-
