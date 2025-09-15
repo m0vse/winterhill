@@ -25,6 +25,9 @@
 */
 
 /*
+	2025-09-14
+		Added 64bit and Debian Bookworm support (Phil Taylor M0VSE)
+	
 	2021-02-17	2v40
 		added PIC check function and status return
 

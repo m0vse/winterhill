@@ -21,6 +21,8 @@
 
 	This software is based on LongMynd, copyright 2019 by Heather Lomond, M0HMO
 	Modified by Brian Jordan, G4EWJ, 2020 for the WinterHill dual serial NIM project.
+	Modified by Phil Taylor M0VSE 14th Sep 2025 to add support for 64bit Arm and Debian Bookworm
+
 */
 
 // winterhill main application 3v20

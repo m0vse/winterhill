@@ -15,6 +15,8 @@
  * comes with a helper C program that can be run in Linux user space to communicate with
  * this the LKM.
  * @see http://www.derekmolloy.ie/ for a full description and follow-up descriptions.
+ *
+ * Modified by Phil Taylor M0VSE 14th Sep 2025 to add support for 64bit Arm and Debian Bookworm
 */
  
 #include <linux/init.h>           // Macros used to mark up functions e.g. __init __exit

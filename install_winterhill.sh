@@ -2,6 +2,7 @@
 
 # WinterHill 3v20 install file
 # G8GKQ 6 Mar 2021
+# Support for Debian Bookworm added by Phil Taylor M0VSE 14th Sep 2025
 
 # Winterhill for a 1920 x 1080 screen
 

@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # Updated by davecrump 202103080 for WinterHill
+# Support for Debian Bookworm added by Phil Taylor M0VSE 14th Sep 2025
+
 
 reset
 
