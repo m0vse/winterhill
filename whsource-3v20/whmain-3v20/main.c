@@ -590,107 +590,105 @@ int main (int argc, char *argv[])
 	else
 	{
 		printf ("Processing /home/pi/winterhill/winterhill.ini\r\n") ;
-		while (!feof(ip))
+
+
+		while (fgets(buff, sizeof buff, ip))               // <? no feof()
 		{
-			memset (buff,0,sizeof(buff)) ;
-			fgets (buff,sizeof(buff)-1,ip) ;
-			pos = strchr (buff,CR) ;
-			if (pos)
+    			if ((pos = strpbrk(buff, "\r\n")) != NULL)
 			{
-				*pos = 0 ;
+	        		*pos = '\0';
 			}
-			pos = strchr (buff,LF) ;
-			if (pos)
-			{
-				*pos = 0 ;
-			}
+
 			pos = strchr (buff,'#') ;
 			if (pos)
 			{
 				*pos = 0 ;
-			}		
+			}
 
-			do
 			{
-				pos = strchr(buff,' ') ; 
-				if (pos)
+    				char *r = buff, *w = buff;
+		    		for (; *r; ++r) {
+        				if (*r != ' ' && *r != '\t') *w++ = *r;
+    				}
+    				*w = '\0';
+			}
+
+			if (!*buff) continue;
+
+			pos = strchr (buff, '=') ;
+			if (pos)
+			{
+				*pos = 0 ;
+				if (strcasecmp(buff, "H265_MAX") == 0)
 				{
-					strcpy (pos,pos+1) ;
+					printf ("H265_MAX    %d\r\n", atoi(pos+1)) ;
+					h265max = atoi (pos+1) ;						// maximum number of VLC windows to use the hardware decoder
+				}			
+				else if (strcasecmp(buff, "NULL_8190") == 0)
+				{
+					printf ("NULL_8190   %d\r\n", atoi(pos+1)) ;
+					null8190 = atoi (pos+1) ;						// PID 8190 is treated as a NULL packet
+				}			
+				else if (strcasecmp(buff, "NULL_REMOVE") == 0)
+				{
+					printf ("NULL_REMOVE %d\r\n", atoi(pos+1)) ;
+					nullremove = atoi (pos+1) ;						// NULL packets are not sent to VLC
+				}			
+				else if (strcasecmp(buff, "EIT_REMOVE") == 0)
+				{
+					printf ("EIT_REMOVE  %d\r\n", atoi(pos+1)) ;
+					eitremove = atoi (pos+1) ;						// EIT packets are removed from the incoming TS
+				}			
+				else if (strcasecmp(buff, "EIT_INSERT") == 0)
+				{
+					printf ("EIT_INSERT  %d\r\n", atoi(pos+1)) ;
+					eitinsert = atoi (pos+1) ;						// an EIT packet with info is inserted into the TS
+				}			
+				else if (strcasecmp(buff, "IDLE_TIME") == 0)
+				{
+					printf ("EIT_INSERT  %d\r\n", atoi(pos+1)) ;
+					idletime = atoi (pos+1) ;						// disable receiver after no receive
+				}			
+				else if (strcasecmp(buff, "OFFNET_TIME") == 0)
+				{
+					printf ("OFFNET_TIME %d\r\n", atoi(pos+1)) ;
+					offnettime = atoi (pos+1) ;						// stop off net sending after no commands
+				}			
+				else if (strcasecmp(buff, "CALIB_FREQ") == 0)
+				{
+					printf ("CALIB_FREQ  %d\r\n", atoi(pos+1)) ;
+					qo100beaconfreq = atoi (pos+1) ;				// calibration frequency
+				}			
+				else if (strcasecmp(buff, "COMMAND") == 0) 
+				{
+    					printf("COMMAND     %s\r\n", pos + 1);
+    					if (inicommandcount < MAXINICOMMANDS) {             
+        					size_t cap = sizeof inicommands[0] - 1;
+        					size_t n   = strnlen(pos + 1, cap);
+        					memcpy(inicommands[inicommandcount], pos + 1, n);
+        					inicommands[inicommandcount][n] = '\0';      // always terminate
+        					inicommandcount++;
+    					} else {
+        					fprintf(stderr, "Too many COMMAND lines (%d >= %d)\n",
+				                inicommandcount, (int)MAXINICOMMANDS);
+    					}
 				}
-			} while (pos) ;		
-
-			do
-			{
-				pos = strchr(buff,TAB) ; 
-				if (pos)
+				else
 				{
-					strcpy (pos,pos+1) ;
-				}
-			} while (pos) ;
-
-			if (strlen(buff))
-			{
-				pos = strchr (buff, '=') ;
-				if (pos)
-				{
-					*pos = 0 ;
-					if (strcasecmp(buff, "H265_MAX") == 0)
-					{
-						printf ("H265_MAX    %d\r\n", atoi(pos+1)) ;
-						h265max = atoi (pos+1) ;						// maximum number of VLC windows to use the hardware decoder
-					}			
-					else if (strcasecmp(buff, "NULL_8190") == 0)
-					{
-						printf ("NULL_8190   %d\r\n", atoi(pos+1)) ;
-						null8190 = atoi (pos+1) ;						// PID 8190 is treated as a NULL packet
-					}			
-					else if (strcasecmp(buff, "NULL_REMOVE") == 0)
-					{
-						printf ("NULL_REMOVE %d\r\n", atoi(pos+1)) ;
-						nullremove = atoi (pos+1) ;						// NULL packets are not sent to VLC
-					}			
-					else if (strcasecmp(buff, "EIT_REMOVE") == 0)
-					{
-						printf ("EIT_REMOVE  %d\r\n", atoi(pos+1)) ;
-						eitremove = atoi (pos+1) ;						// EIT packets are removed from the incoming TS
-					}			
-					else if (strcasecmp(buff, "EIT_INSERT") == 0)
-					{
-						printf ("EIT_INSERT  %d\r\n", atoi(pos+1)) ;
-						eitinsert = atoi (pos+1) ;						// an EIT packet with info is inserted into the TS
-					}			
-					else if (strcasecmp(buff, "IDLE_TIME") == 0)
-					{
-						printf ("EIT_INSERT  %d\r\n", atoi(pos+1)) ;
-						idletime = atoi (pos+1) ;						// disable receiver after no receive
-					}			
-					else if (strcasecmp(buff, "OFFNET_TIME") == 0)
-					{
-						printf ("OFFNET_TIME %d\r\n", atoi(pos+1)) ;
-						offnettime = atoi (pos+1) ;						// stop off net sending after no commands
-					}			
-					else if (strcasecmp(buff, "CALIB_FREQ") == 0)
-					{
-						printf ("CALIB_FREQ  %d\r\n", atoi(pos+1)) ;
-						qo100beaconfreq = atoi (pos+1) ;				// calibration frequency
-					}			
-					else if (strcasecmp(buff, "COMMAND") == 0)
-					{
-						printf ("COMMAND     %s\r\n", pos+1) ;
-						if (inicommandcount < MAXINICOMMANDS)
-						{
-							strncpy (inicommands[inicommandcount++], pos+1, sizeof(inicommands[0])-1) ;	
-						}												// save the command
-					}			
-					else
-					{
-						printf ("%-12s*unknown*\r\n", buff) ;
-					}			
+					printf ("%-12s*unknown*\r\n", buff) ;
 				}
 			}
 		}
-		fclose (ip) ;
-	    printf ("============================================================================================\r\n") ;                         
+
+		if (ferror(ip)) {
+			perror("fgets");
+		}
+
+		fclose (ip);
+		for (uint32 j=0;j<inicommandcount;j++)
+			printf("Command %d: '%s'\r\n",j,inicommands[j]);
+
+	    	printf ("============================================================================================\r\n") ;                         
 	}
 
 // look for the I2C port
