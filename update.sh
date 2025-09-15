@@ -16,7 +16,8 @@ GIT_SRC_FILE=".wh_gitsrc"
 if [ -e ${GIT_SRC_FILE} ]; then
   GIT_SRC=$(</home/pi/${GIT_SRC_FILE})
 else
-  GIT_SRC="BritishAmateurTelevisionClub"
+#  GIT_SRC="BritishAmateurTelevisionClub"
+  GIT_SRC="m0vse"
 fi
 
 # Define Location of Dev version
