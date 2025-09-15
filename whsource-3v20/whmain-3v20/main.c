@@ -1784,45 +1784,42 @@ int main (int argc, char *argv[])
 		{
 			if (rcv[rx].active)
 			{
-				if (rcv[rx].scanstate != STATE_TIMEOUT && rcv[rx].scanstate != STATE_IDLE)
+				if (offnettime > 0 && rcv[rx].scanstate != STATE_TIMEOUT && rcv[rx].scanstate != STATE_IDLE && rcv[rx].iptype == IP_OFFNET)
 				{
-					if (rcv[rx].iptype == IP_OFFNET) 				// sending off my subnet	
+					tempu = offnettime * 1000 ;
+					if (monotime_ms() - rcv[rx].commandreceivedtime >= tempu)
 					{
-						tempu = offnettime * 1000 ;
-						if (monotime_ms() - rcv[rx].commandreceivedtime >= tempu)
+						rcv[rx].scanstate = STATE_TIMEOUT ;
+						rcv[rx].timeoutholdoffcount = 4 ;		// send info 4 times after timeout
+						rcv[rx].commandreceivedtime = 0 ;
+						rcv[rx].timedouttime = monotime_ms() ;	// time of timeout
+						if (i2csharedaccess != I2CMAINHAS)		// acquire access to I2C
 						{
-							rcv[rx].scanstate = STATE_TIMEOUT ;		
-							rcv[rx].timeoutholdoffcount = 4 ;		// send info 4 times after timeout
-							rcv[rx].commandreceivedtime = 0 ;
-							rcv[rx].timedouttime = monotime_ms() ;	// time of timeout
-							if (i2csharedaccess != I2CMAINHAS)		// acquire access to I2C
+							if (i2csharedaccess == I2CINFOHAS)
+						{
+								i2csharedaccess = I2CMAINWANTS ;
+							}
+							while (i2csharedaccess != I2CMAINHAS)
 							{
-								if (i2csharedaccess == I2CINFOHAS)
-								{
-									i2csharedaccess = I2CMAINWANTS ;
-								}
-								while (i2csharedaccess != I2CMAINHAS)
-								{
-									usleep (10 * 1000) ;
-								}	
-							}									
-							GLOBALNIM = rcv[rx].nim ;
-							stv6120_init 							// configure receiver
-							(
-								rcv[rx].nimreceiver, 0,				// turn off the receiver
-								rcv[rx].antenna,	 rcv[rx].symbolrates[0]				
-							) ;												
-							i2csharedaccess = I2CINFOHAS ;			// give I2C access back to info loop
+								usleep (10 * 1000) ;
+							}
 						}
+						GLOBALNIM = rcv[rx].nim ;
+						stv6120_init 							// configure receiver
+						(
+							rcv[rx].nimreceiver, 0,				// turn off the receiver
+							rcv[rx].antenna,	 rcv[rx].symbolrates[0]
+						) ;
+						i2csharedaccess = I2CINFOHAS ;			// give I2C access back to info loop
 					}
 				}
 			}
 		}
-        
-// check for signal loss and set idle mode
 
-        nowms = monotime_ms() ;
-      	for (rx = 1 ; rx <= MAXRECEIVERS ; rx++)
+		// check for signal loss and set idle mode
+
+        	nowms = monotime_ms() ;
+      		for (rx = 1 ; rx <= MAXRECEIVERS ; rx++)
 		{
 			temp = 0 ;
        		if (rcv[rx].active && rcv[rx].scanstate != STATE_IDLE)
