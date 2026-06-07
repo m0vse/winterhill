@@ -29,6 +29,6 @@ do
 done
 
 
-cd /home/pi/winterhill/RPi-3v20
-./winterhill-local-3v20.sh 127.0.0.1 9900 0
+cd /home/pi/winterhill/RPi-4v00
+./winterhill-local-4v00.sh 127.0.0.1 9900 0
 

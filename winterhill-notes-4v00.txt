@@ -1,8 +1,7 @@
-WinterHill-3v20
+WinterHill-4v00
 ===============
 
-The main application, .sh files, driver, PIC programmer and PIC hex should all be version 3v20
-Some will report as 3v20a
+The main application, .sh files, driver, PIC programmer and PIC hex should all be version 4v00
 Do not mix versions
 
 
@@ -30,7 +29,7 @@ Boards with 3 pin programming jumpers near the PICs need to be modified for the 
 PIC Programmer			
 ==============
 
-whpicprog-3v20 has the following features over 2v22:
+whpicprog-4v00 has the following features over 2v22:
 
 	Both PICs are programmed in one pass without the need for jumpers or user intervention
 	Board versions with jumpers may need to be modified
@@ -53,26 +52,26 @@ whpicprog-3v20 has the following features over 2v22:
 		0		PIC is present but unprogrammed or version unknown (whpic-2v22 will return this)
 		1		PIC is not present
 		2-14	PIC software version relative to 3v00
-				2 = 3v20, 3=3v30, 9=3v90, 10=4v00, 14=4v40
+				10 = 4v00
 		15		invalid
 
 
-	Usage: 		sudo ./whpicprog-3v20 HEXFILENAME		
+	Usage: 		sudo ./whpicprog-4v00 HEXFILENAME
 
 				both PICs are programmed without any jumpers or user intervention needed
 				the results are in the return value
 
-	Usage:		sudo ./whpicprog-3v20 --check
+	Usage:		sudo ./whpicprog-4v00 --check
 
 				PICs are checked without being programmed
 				the results are in the return value
 
 				
-	In the PIC-3v20 folder, there are programs for development testing which will erase just one PIC at a time
+	In the PIC-4v00 folder, there are programs for development testing which will erase just one PIC at a time
 	These should be removed in the release
 
-		sudo ./whpiceraseA-3v20
-		sudo ./whpiceraseB-3v20
+		sudo ./whpiceraseA-4v00
+		sudo ./whpiceraseB-4v00
 
 
 Main Application
@@ -112,8 +111,6 @@ Baseport +
 
 =========
 	
-
-
 
 
 

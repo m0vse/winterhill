@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# whlaunch-anyhub-3v20.sh
+# whlaunch-anyhub-4v00.sh
 
 # sends the TS to wherever the command came from
 # does not start any local VLC windows
@@ -32,6 +32,6 @@ do
 done
 
 # Now launch
-cd /home/pi/winterhill/RPi-3v20/
-./winterhill-anyhub-3v20.sh 0 9900 0
+cd /home/pi/winterhill/RPi-4v00/
+./winterhill-anyhub-4v00.sh 0 9900 0
 

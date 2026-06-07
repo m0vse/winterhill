@@ -5,7 +5,7 @@
 #	positions this window
 #	starts winterhill main application and positions it
 #
-# Usage: ./winterhill-anyhub-3v20.sh IPADDRESS IPPORT IPINTERFACEADDRESS
+# Usage: ./winterhill-anyhub-4v00.sh IPADDRESS IPPORT IPINTERFACEADDRESS
 
 
 trap trapit SIGINT
@@ -29,9 +29,9 @@ fi
                
 # get supplied parameters
 
-WINTERHILL="winterhill-3v20"
+WINTERHILL="winterhill-4v00"
 MYNAME=$0
-MYLAUNCH="whlaunch-anyhub-3v20.sh"
+MYLAUNCH="whlaunch-fixed-4v00.sh"
 IPADDRESS=$1
 IPPORT=$2
 IPINTERFACEADDRESS=$3
@@ -56,7 +56,7 @@ do
     sleep 0.1s
 done
 whwindow=$status
-xdotool windowmove --sync $whwindow 260 608
+xdotool windowmove --sync $whwindow 260 608 
 xdotool windowsize --sync $whwindow 1500 175
 xdotool set_window --name "$WINTERHILL $IPADDRESS $IPPORT $IPINTERFACEADDRESS" $whwindow 
 

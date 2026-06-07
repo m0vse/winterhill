@@ -2,7 +2,7 @@
 Name=WinterHill Fixed
 Comment=Sends 4 TS to a fixed IP.  No local display
 Icon=/usr/share/pixmaps/openbox.png
-Exec=/home/pi/winterhill/RPi-3v20/whlaunch-fixed-3v20.sh
+Exec=/home/pi/winterhill/RPi-4v00/whlaunch-fixed-4v00.sh
 Type=Application
 Encoding=UTF-8
 Terminal=true

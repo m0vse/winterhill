@@ -25,10 +25,10 @@
 
 */
 
-// winterhill main application 3v20
+// winterhill main application 4v00
 		
-#define VERSIONX	"3v20" 		// main version ID
-#define VERSIONX2	"a" 		// sub version ID
+#define VERSIONX	"4v00" 		// main version ID
+#define VERSIONX2	"" 		// sub version ID
 
 
 #include <stdio.h>
@@ -57,9 +57,9 @@ static inline uint32_t u32_absdiff(uint32_t a, uint32_t b) { return (a > b) ? (a
 */
 
 /*
-    usage:  sudo ./winterhill-3v20 IP_Address IP_Port Interface_IP_Address VLCid1 VLCid2 VLCid3 VLCid4
+    usage:  sudo ./winterhill-4v00 IP_Address IP_Port Interface_IP_Address VLCid1 VLCid2 VLCid3 VLCid4
 
-    E.g.   sudo ./winterhill-3v20 192.168.1.230 9900 0 w1 w2 w3 w4
+    E.g.   sudo ./winterhill-4v00 192.168.1.230 9900 0 w1 w2 w3 w4
  
     Default operation:
     

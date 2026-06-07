@@ -3,9 +3,9 @@
 #
 #	does not start any local VLC windows
 #	positions this window
-#	starts winterhill main application and positions it, passing the 4 xdotool window IDs
+#	starts winterhill main application and positions it
 #
-# Usage: ./winterhill-multihub-3v20.sh IPADDRESS IPPORT IPINTERFACEADDRESS
+# Usage: ./winterhill-anyhub-4v00.sh IPADDRESS IPPORT IPINTERFACEADDRESS
 
 
 trap trapit SIGINT
@@ -21,17 +21,17 @@ trapit()
 
 if [ $# -ne 3 ]
 then
-	echo "This program requires 3 parameters"
+    echo "This program requires 3 parameters"
     echo ""
     sleep 5s
     exit  1
-fi         
-
+fi
+               
 # get supplied parameters
 
-WINTERHILL="winterhill-3v20"
+WINTERHILL="winterhill-4v00"
 MYNAME=$0
-MYLAUNCH="whlaunch-multihub-3v20.sh"
+MYLAUNCH="whlaunch-anyhub-4v00.sh"
 IPADDRESS=$1
 IPPORT=$2
 IPINTERFACEADDRESS=$3
@@ -57,7 +57,7 @@ do
 done
 whwindow=$status
 xdotool windowmove --sync $whwindow 260 608
-xdotool windowsize --sync $whwindow 1500 175 
+xdotool windowsize --sync $whwindow 1500 175
 xdotool set_window --name "$WINTERHILL $IPADDRESS $IPPORT $IPINTERFACEADDRESS" $whwindow 
 
 # position this windows

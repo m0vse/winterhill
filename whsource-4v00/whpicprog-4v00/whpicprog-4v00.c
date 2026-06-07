@@ -1,5 +1,5 @@
 #include <stdint.h>
-#define VERSION "whpicprog-3v20"
+#define VERSION "whpicprog-4v00"
 
 /* -------------------------------------------------------------------------------------------------- */
 /* In-circuit PIC programmer for the WinterHill 4 channel DATV receiver                               */

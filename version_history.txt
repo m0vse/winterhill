@@ -1,3 +1,6 @@
+202606071
+Rename WinterHill release to 4v00
+
 202606070
 Add provisional support for trixie
 
@@ -17,7 +20,7 @@ Multiple bugfixes
 Correct whdriver
 
 202103070
-Update to version 3v20
+Update to version 4v00
 Single-step PIC Programming
 
 202012240

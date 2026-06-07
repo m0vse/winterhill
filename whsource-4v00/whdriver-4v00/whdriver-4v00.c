@@ -1,8 +1,8 @@
 #include <asm/barrier.h>
-#define VERSION "whdriver-3v20"		// use SPI5 as the dummy
+#define VERSION "whdriver-4v00"		// use SPI5 as the dummy
 									// BOARD_RESET is only driven low
 
-// winterhill kernel module device driver: /dev/winterhill2v40
+// winterhill kernel module device driver: /dev/whdriver-4v00
 
 /* This was derived from:
  *
@@ -43,7 +43,7 @@ typedef unsigned char	uint8 ;
 
 #define TIMEOUT100ms	100 		// milliseconds in a timer tick
 
-#define DEVICE_NAME 	VERSION 	///< The device will appear at /dev/winterhill2v40 using this value
+#define DEVICE_NAME 	VERSION 	///< The device will appear at /dev/whdriver-4v00 using this value
 #define CLASS_NAME  	"ebb"       ///< The device class -- this is a character device driver
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
@@ -138,8 +138,8 @@ typedef unsigned char	uint8 ;
  
 MODULE_LICENSE			("GPL");            							///< The license type -- this affects available functionality
 MODULE_AUTHOR			("Brian Jordan (see source for derivation credit)"); ///< The author -- visible when you use modinfo
-MODULE_DESCRIPTION		("Linux char driver for winterhill2v40");  		///< The description -- see modinfo
-MODULE_VERSION			("2v40");            							///< A version number to inform users
+MODULE_DESCRIPTION		("Linux char driver for WinterHill 4v00");  		///< The description -- see modinfo
+MODULE_VERSION			("4v00");            							///< A version number to inform users
 
 static volatile uint32*	gpio ;
 static volatile uint32*	spiA ;
@@ -426,7 +426,7 @@ static int dev_open (struct inode *inodep, struct file *filep)
 			spiAreadyintno,       					// The interrupt number requested
 	        picready_handler, 		// The pointer to the handler function below
     	    IRQF_TRIGGER_FALLING,					// Interrupt on rising edge (button press, not release)
-        	"whdriver-2v40_picA_handler",			// Used in /proc/interrupts to identify the owner
+			"whdriver-4v00_picA_handler",			// Used in /proc/interrupts to identify the owner
 	        NULL                 					// The *dev_id for shared interrupt lines, NULL is okay
     	) ;
 	    printk (KERN_INFO "winterhill: The SPIRDY_A interrupt request result is: %d\n", result);
@@ -438,7 +438,7 @@ static int dev_open (struct inode *inodep, struct file *filep)
 			spiBreadyintno,       					// The interrupt number requested
 	        picready_handler, 		// The pointer to the handler function below
     	    IRQF_TRIGGER_FALLING,					// Interrupt on rising edge (button press, not release)
-        	"whdriver-2v40_picB_handler",			// Used in /proc/interrupts to identify the owner
+			"whdriver-4v00_picB_handler",			// Used in /proc/interrupts to identify the owner
 	        NULL                 					// The *dev_id for shared interrupt lines, NULL is okay
     	) ;
 	    printk (KERN_INFO "winterhill: The SPIRDY_B interrupt request result is: %d\n", result);
@@ -449,7 +449,7 @@ static int dev_open (struct inode *inodep, struct file *filep)
 			spi5interruptnumber, 					// The interrupt number requested
 	        spi_handler, 			// The pointer to the handler function below
     	    IRQF_TRIGGER_HIGH | IRQF_SHARED,		// Interrupt when high
-        	"whdriver-2v40_spi_handler",			// Used in /proc/interrupts to identify the owner
+			"whdriver-4v00_spi_handler",			// Used in /proc/interrupts to identify the owner
 	        DEVICE_NAME         					// The *dev_id for shared interrupt lines, NULL is okay
     	) ;
 	    printk (KERN_INFO "winterhill: The SPI interrupt request result is: %d\n", result);

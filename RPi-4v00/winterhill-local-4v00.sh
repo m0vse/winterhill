@@ -6,7 +6,7 @@
 #	positions this window
 #	starts winterhill main application and positions it, passing the 4 xdotool window IDs
 #
-# Usage: ./winterhill-anywhere-3v20.sh IPADDRESS IPPORT IPINTERFACEADDRESS
+# Usage: ./winterhill-local-4v00.sh IPADDRESS IPPORT IPINTERFACEADDRESS
 
 
 trap trapit SIGINT
@@ -20,21 +20,21 @@ trapit()
 
 # check for correct number of parameters
 
-if [ $# -ne 3 ]
+if [ $# -ne 3 ] 
 then
 	echo "This program requires 3 parameters"
-    echo ""
-    sleep 5s
-    exit  1
+	echo ""
+	sleep 5s
+	exit  1
 fi
-                
+
 # get supplied parameters
 
-WINTERHILL="winterhill-3v20"
+WINTERHILL="winterhill-4v00"
 MYNAME=$0
-MYLAUNCH="whlaunch-anywhere-3v20.sh"
-# local address
-IPADDRESS="127.0.0.1"
+MYLAUNCH="whlaunch-local-4v00.sh"
+# ignore address
+IPADDRESS=$1
 IPPORT=$2
 IPINTERFACEADDRESS=$3
 WINTERHILLCOMMAND="lxterminal -e ./$WINTERHILL"
@@ -138,8 +138,7 @@ xdotool windowmove --sync $vlcwindow4 $VLCLEFT24 $(($VLCTOP34 + 2))
 
 # start the main WinterHill application
 
-# address forced to zero
-command="$WINTERHILLCOMMAND 0 $IPPORT $IPINTERFACEADDRESS $vlcwindow1 $vlcwindow2 $vlcwindow3 $vlcwindow4"
+command="$WINTERHILLCOMMAND $IPADDRESS $IPPORT $IPINTERFACEADDRESS $vlcwindow1 $vlcwindow2 $vlcwindow3 $vlcwindow4"
 sudo $command &
 
 # position the main WinterHill window
@@ -152,7 +151,7 @@ do
     sleep 0.1s
 done
 whwindow=$status
-xdotool windowmove --sync $whwindow 260 608
+xdotool windowmove --sync $whwindow 260 608 
 xdotool windowsize --sync $whwindow 1500 175 
 xdotool set_window --name "$WINTERHILL $IPADDRESS $IPPORT $IPINTERFACEADDRESS" $whwindow 
 

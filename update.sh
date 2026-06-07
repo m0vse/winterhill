@@ -136,7 +136,7 @@ echo "--------------------------------------------"
 echo "---- Rebuilding spi driver for install -----"
 echo "--------------------------------------------"
 echo
-cd /home/pi/winterhill/whsource-3v20/whdriver-3v20
+cd /home/pi/winterhill/whsource-4v00/whdriver-4v00
 make
 if [ $? != 0 ]; then
   echo "------------------------------------------"
@@ -150,9 +150,10 @@ fi
 # Add current driver to this list after a driver update
 sudo rmmod whdriver-2v22.ko >/dev/null 2>/dev/null
 sudo rmmod whdriver-3v20.ko >/dev/null 2>/dev/null
+sudo rmmod whdriver-4v00.ko >/dev/null 2>/dev/null
 
 # Load the new driver
-sudo insmod whdriver-3v20.ko
+sudo insmod whdriver-4v00.ko
 if [ $? != 0 ]; then
   echo "------------------------------------------"
   echo "--- Failed to load WinterHill Driver -----"
@@ -161,7 +162,7 @@ if [ $? != 0 ]; then
   exit
 fi
 
-cat /proc/modules | grep -q 'whdriver_3v20'
+cat /proc/modules | grep -q 'whdriver_4v00'
 if [ $? != 0 ]; then
   echo "-----------------------------------------------------"
   echo "--- Failed to find new loaded WinterHill Driver -----"
@@ -184,14 +185,14 @@ echo "----------------------------------------------------"
 echo
 
 if [ -f "/etc/rc.local" ]; then
-  sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-3v20/whdriver-3v20\nmake clean >/dev/null 2>&1\nmake\ninsmod whdriver-3v20.ko\nexit 0" /etc/rc.local
+  sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-4v00/whdriver-4v00\nmake clean >/dev/null 2>&1\nmake\ninsmod whdriver-4v00.ko\nexit 0" /etc/rc.local
 else
   sudo tee /etc/rc.local > /dev/null  << EOL
 #!/bin/sh -e
-cd /home/pi/winterhill/whsource-3v20/whdriver-3v20
+cd /home/pi/winterhill/whsource-4v00/whdriver-4v00
 make clean >/dev/null 2>&1
 make
-insmod whdriver-3v20.ko
+insmod whdriver-4v00.ko
 exit 0
 EOL
 
@@ -203,7 +204,7 @@ echo "---------------------------------------------------"
 echo "---- Building the main WinterHill Application -----"
 echo "---------------------------------------------------"
 echo
-cd /home/pi/winterhill/whsource-3v20/whmain-3v20
+cd /home/pi/winterhill/whsource-4v00/whmain-4v00
 make
 if [ $? != 0 ]; then
   echo "----------------------------------------------"
@@ -212,14 +213,14 @@ if [ $? != 0 ]; then
   echo UPDATE Failed to build the WinterHill Application >> /home/pi/winterhill/whlog.txt
   exit
 fi
-cp winterhill-3v20 /home/pi/winterhill/RPi-3v20/winterhill-3v20
+cp winterhill-4v00 /home/pi/winterhill/RPi-4v00/winterhill-4v00
 cd /home/pi
 
 echo "--------------------------------------"
 echo "---- Building the PIC Programmer -----"
 echo "--------------------------------------"
 echo
-cd /home/pi/winterhill/whsource-3v20/whpicprog-3v20
+cd /home/pi/winterhill/whsource-4v00/whpicprog-4v00
 ./make.sh
 if [ $? != 0 ]; then
   echo "--------------------------------------"
@@ -228,7 +229,7 @@ if [ $? != 0 ]; then
   echo UPDATE Failed to build the PIC Programmer >> /home/pi/winterhill/whlog.txt
   exit
 fi
-cp whpicprog-3v20 /home/pi/winterhill/PIC-3v20/whpicprog-3v20
+cp whpicprog-4v00 /home/pi/winterhill/PIC-4v00/whpicprog-4v00
 cd /home/pi
 
 # Any desktop shortcuts needing replacement will need deleting here

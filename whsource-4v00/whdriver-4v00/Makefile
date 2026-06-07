@@ -1,5 +1,5 @@
 # Makefile
-obj-m += whdriver-3v20.o
+obj-m += whdriver-4v00.o
 KDIR ?= /lib/modules/$(shell uname -r)/build
 PWD  := $(shell pwd)
 

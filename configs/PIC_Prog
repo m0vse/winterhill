@@ -1,8 +1,8 @@
 [Desktop Entry]
 Name=Check PICs
 Comment=Program Both PICs
-Icon=/home/pi/winterhill/PIC-3v20/PIC.svg
-Exec=lxterminal -t "Program PICs" --working-directory=/home/pi/winterhill/PIC-3v20/ -e ./whpicprog-3v20.sh
+Icon=/home/pi/winterhill/PIC-4v00/PIC.svg
+Exec=lxterminal -t "Program PICs" --working-directory=/home/pi/winterhill/PIC-4v00/ -e ./whpicprog-4v00.sh
 Type=Application
 Encoding=UTF-8
 Terminal=true

@@ -2,7 +2,7 @@
 Name=WinterHill Local
 Comment=Displays 4 VLCs on the RPi HDMI Screen
 Icon=/usr/share/pixmaps/openbox.png
-Exec=/home/pi/winterhill/RPi-3v20/whlaunch-local-3v20.sh
+Exec=/home/pi/winterhill/RPi-4v00/whlaunch-local-4v00.sh
 Type=Application
 Encoding=UTF-8
 Terminal=true

@@ -2,7 +2,7 @@
 Name=Stop WinterHill
 Comment=Kills all WinterHill Processes
 Icon=/home/pi/winterhill/configs/stop.png
-Exec=/home/pi/winterhill/whstop-3v20.sh
+Exec=/home/pi/winterhill/whstop-4v00.sh
 Type=Application
 Encoding=UTF-8
 Terminal=true
