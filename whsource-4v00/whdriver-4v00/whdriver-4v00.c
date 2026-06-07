@@ -169,8 +169,6 @@ static volatile int		count2 ;
 static volatile int		deviceopen ;
 static volatile int	 	spiAreadyintno ;		/// interrupt number for PIC_A READY 
 static volatile int	 	spiBreadyintno ;		/// interrupt number for PIC_B READY 
-static volatile int		spiAreadygpio ;
-static volatile int		spiBreadygpio ;
 static volatile int		spiAreadyirq ;
 static volatile int		spiBreadyirq ;
 static volatile int		spi5irq ;
@@ -219,7 +217,6 @@ static irqreturn_t picready_handler (int irq, void *dev_id);
 static irqreturn_t spi_handler (int irq, void *dev_id);
 
 ///static uint32			gpioget 			(uint32) ;
-static int					ready_gpio_to_irq	(uint32, const char*, volatile int*);
 static void					gpioset 			(uint32, uint32) ;
 static void					gpioconfig 			(uint32, uint32) ;
 static struct timer_list 	mytimer ;
@@ -328,8 +325,6 @@ static int __init winterhill_init (void)
 	picBreadyinterruptnumber = 0 ;
 	spiAreadyintno		= 0 ;
 	spiBreadyintno		= 0 ;
-	spiAreadygpio		= 0 ;
-	spiBreadygpio		= 0 ;
 	spiAreadyirq		= 0 ;
 	spiBreadyirq		= 0 ;
 	spi5irq				= 0 ;
@@ -436,15 +431,15 @@ static int dev_open (struct inode *inodep, struct file *filep)
 		
 // set up the interrupts	
 
-		if (picAreadyinterruptnumber)
+		if ((picAreadyinterruptnumber == 0) || (picBreadyinterruptnumber == 0))
 		{
-			spiAreadyintno = picAreadyinterruptnumber ;
-			printk (KERN_INFO "winterhill: SPIRDY_A IRQ number (%d) provided\n", spiAreadyintno);
+			printk (KERN_ALERT "winterhill: PIC ready IRQ numbers not provided; write 12-byte IRQ config first\n");
+			result = -EINVAL ;
+			goto open_cleanup;
 		}
-		else
-		{
-			spiAreadyintno = ready_gpio_to_irq (SPIRDY_A, "whdriver-4v00_spirdy_a", &spiAreadygpio);
-		}
+
+		spiAreadyintno = picAreadyinterruptnumber ;
+		printk (KERN_INFO "winterhill: SPIRDY_A IRQ number (%d) provided\n", spiAreadyintno);
    		printk (KERN_INFO "winterhill: SPIRDY_A is mapped to IRQ: %d\n", spiAreadyintno);
 		if (spiAreadyintno < 0)
 		{
@@ -468,15 +463,8 @@ static int dev_open (struct inode *inodep, struct file *filep)
 		}
 		spiAreadyirq = 1 ;
 
-		if (picBreadyinterruptnumber)
-		{
-			spiBreadyintno = picBreadyinterruptnumber ;
-			printk (KERN_INFO "winterhill: SPIRDY_B IRQ number (%d) provided\n", spiBreadyintno);
-		}
-		else
-		{
-			spiBreadyintno = ready_gpio_to_irq (SPIRDY_B, "whdriver-4v00_spirdy_b", &spiBreadygpio);
-		}
+		spiBreadyintno = picBreadyinterruptnumber ;
+		printk (KERN_INFO "winterhill: SPIRDY_B IRQ number (%d) provided\n", spiBreadyintno);
    		printk (KERN_INFO "winterhill: SPIRDY_B is mapped to IRQ: %d\n", spiBreadyintno);
 		if (spiBreadyintno < 0)
 		{
@@ -546,16 +534,6 @@ open_cleanup:
 		{
 			free_irq (spiAreadyintno, NULL);
 			spiAreadyirq = 0 ;
-		}
-		if (spiBreadygpio)
-		{
-			gpio_free (SPIRDY_B);
-			spiBreadygpio = 0 ;
-		}
-		if (spiAreadygpio)
-		{
-			gpio_free (SPIRDY_A);
-			spiAreadygpio = 0 ;
 		}
 		gpioconfig (SPISS_B,	FSEL_INPUT) ;
 		gpioconfig (SPICLK_B,	FSEL_INPUT) ;
@@ -819,17 +797,6 @@ static int dev_release (struct inode *inodep, struct file *filep)
 		gpioconfig (SPIMISO_A,	FSEL_INPUT) ;
 		gpioconfig (SPIRDY_A,	FSEL_INPUT) ;
 
-		if (spiBreadygpio)
-		{
-			gpio_free (SPIRDY_B) ;
-			spiBreadygpio = 0 ;
-		}
-		if (spiAreadygpio)
-		{
-			gpio_free (SPIRDY_A) ;
-			spiAreadygpio = 0 ;
-		}
-
 		iounmap (pactl) ;
 		iounmap (spiB) ;
 		iounmap (spiA) ;
@@ -908,16 +875,6 @@ static int dev_release (struct inode *inodep, struct file *filep)
 			spiAreadyirq = 0 ;
 		}
 	   	printk (KERN_INFO "winterhill: BBB\n");
-		if (spiBreadygpio)
-		{
-			gpio_free (SPIRDY_B) ;
-			spiBreadygpio = 0 ;
-		}
-		if (spiAreadygpio)
-		{
-			gpio_free (SPIRDY_A) ;
-			spiAreadygpio = 0 ;
-		}
 		iounmap (pactl) ;
 		iounmap (spiB) ;
 		iounmap (spiA) ;
@@ -1160,42 +1117,6 @@ static irqreturn_t spi_handler (int irq, void *dev_id)
 }
 
         
-static int ready_gpio_to_irq (uint32 bcmportno, const char *label, volatile int *gpio_requested)
-{
-	int		result ;
-
-	*gpio_requested = 0 ;
-
-	result = gpio_request (bcmportno, label) ;
-	if (result == 0)
-	{
-		*gpio_requested = 1 ;
-		result = gpio_direction_input (bcmportno) ;
-		if (result)
-		{
-			printk (KERN_ALERT "winterhill: Failed to set GPIO %d as input: %d\n", bcmportno, result);
-			gpio_free (bcmportno) ;
-			*gpio_requested = 0 ;
-			return result ;
-		}
-
-		result = gpio_to_irq (bcmportno) ;
-		if (result >= 0)
-		{
-			return result ;
-		}
-
-		printk (KERN_ALERT "winterhill: Failed to map GPIO %d to IRQ: %d\n", bcmportno, result);
-		gpio_free (bcmportno) ;
-		*gpio_requested = 0 ;
-		return result ;
-	}
-
-	printk (KERN_ALERT "winterhill: Failed to request GPIO %d: %d\n", bcmportno, result);
-	return result ;
-}
-
-
 static void gpioconfig (uint32 bcmportno, uint32 altfunction)
 {
     uint32                    index ;
