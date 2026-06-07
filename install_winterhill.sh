@@ -71,6 +71,33 @@ ensure_boot_config() {
   fi
 }
 
+ensure_rc_local_driver_load() {
+  if [ ! -f "/etc/rc.local" ]; then
+    sudo tee /etc/rc.local > /dev/null << EOL
+#!/bin/sh -e
+exit 0
+EOL
+    sudo chmod a+x /etc/rc.local
+  fi
+
+  sudo sed -i -E \
+    -e '\#^cd /home/pi/winterhill/whsource-[^/]+/whdriver-[^/]+$#d' \
+    -e '/^(sudo )?insmod whdriver-[^ ]+\.ko$/d' \
+    -e '/^make clean.*$/d' \
+    -e '/^make$/d' \
+    /etc/rc.local
+
+  if sudo grep -q "^exit 0" /etc/rc.local; then
+    sudo sed -i "/^exit 0/i\\cd /home/pi/winterhill/whsource-4v00/whdriver-4v00\nsudo insmod whdriver-4v00.ko" /etc/rc.local
+  else
+    sudo tee -a /etc/rc.local > /dev/null << EOL
+cd /home/pi/winterhill/whsource-4v00/whdriver-4v00
+sudo insmod whdriver-4v00.ko
+exit 0
+EOL
+  fi
+}
+
 install_kernel_headers() {
   sudo apt-get -y install raspberrypi-kernel-headers && return 0
   sudo apt-get -y install "linux-headers-$(uname -r)" && {
@@ -211,19 +238,8 @@ echo "------------------------------------------------"
 echo "---- Set up to load the spi driver at boot -----"
 echo "------------------------------------------------"
 echo
-if [ -f "/etc/rc.local" ]; then
-  sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-4v00/whdriver-4v00\nsudo insmod whdriver-4v00.ko\nexit 0" /etc/rc.local
-else
-  sudo tee /etc/rc.local > /dev/null  << EOL
-#!/bin/sh -e
-cd /home/pi/winterhill/whsource-4v00/whdriver-4v00
-sudo insmod whdriver-4v00.ko
-exit 0
-EOL
-
-  sudo chmod a+x /etc/rc.local
-  sudo systemctl status rc-local.service
-fi
+ensure_rc_local_driver_load
+sudo systemctl status rc-local.service
 
 echo "---------------------------------------------------"
 echo "---- Building the main WinterHill Application -----"
