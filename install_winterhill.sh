@@ -151,13 +151,20 @@ echo "------------------------------------------"
 echo "---- Building spi driver for install -----"
 echo "------------------------------------------"
 echo
-cd /home/pi/winterhill/whsource-4v00/whdriver-4v00
+cd /home/pi/winterhill/whsource-4v00/whdriver-4v00 || exit
 sudo make
 if [ $? != 0 ]; then
   echo "------------------------------------------"
   echo "- Failed to build the WinterHill Driver --"
   echo "------------------------------------------"
   echo INSTALL Initial make of driver failed >> /home/pi/winterhill/whlog.txt
+  exit
+fi
+if [ ! -f whdriver-4v00.ko ]; then
+  echo "------------------------------------------"
+  echo "- WinterHill Driver module was not built -"
+  echo "------------------------------------------"
+  echo INSTALL whdriver-4v00.ko was not found in the driver directory >> /home/pi/winterhill/whlog.txt
   exit
 fi
 
@@ -195,13 +202,14 @@ echo "---- Set up to load the spi driver at boot -----"
 echo "------------------------------------------------"
 echo
 if [ -f "/etc/rc.local" ]; then
-  sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-4v00/whdriver-4v00\nmake clean >/dev/null 2>&1\nmake\ninsmod whdriver-4v00.ko\nexit 0" /etc/rc.local
+  sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-4v00/whdriver-4v00 || exit 1\nmake clean >/dev/null 2>&1\nmake\n[ -f whdriver-4v00.ko ] || exit 1\ninsmod whdriver-4v00.ko\nexit 0" /etc/rc.local
 else
   sudo tee /etc/rc.local > /dev/null  << EOL
 #!/bin/sh -e
-cd /home/pi/winterhill/whsource-4v00/whdriver-4v00
+cd /home/pi/winterhill/whsource-4v00/whdriver-4v00 || exit 1
 make clean >/dev/null 2>&1
 make
+[ -f whdriver-4v00.ko ] || exit 1
 insmod whdriver-4v00.ko
 exit 0
 EOL
