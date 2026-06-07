@@ -1,3 +1,6 @@
+202606070
+Add provisional support for trixie
+
 202509140
 Add provisional support for bookworm
 

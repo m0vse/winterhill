@@ -2,6 +2,7 @@
 
 # Updated by davecrump 202103080 for WinterHill
 # Support for Debian Bookworm added by Phil Taylor M0VSE 14th Sep 2025
+# Support for Debian Trixie added by Phil Taylor M0VSE 7th Jun 2026
 
 
 reset
@@ -10,6 +11,15 @@ echo "------------------------------------------------"
 echo "------ Commencing WinterHill Update ------------"
 echo "------------------------------------------------"
 echo
+
+install_kernel_headers() {
+  sudo apt-get -y install raspberrypi-kernel-headers && return 0
+  sudo apt-get -y install "linux-headers-$(uname -r)" && {
+    sudo apt-get -y install linux-headers-arm64 >/dev/null 2>&1 || true
+    return 0
+  }
+  sudo apt-get -y install linux-headers-arm64
+}
 
 cd /home/pi
 
@@ -88,6 +98,8 @@ sudo dpkg --configure -a                         # Make sure that all the packag
 sudo apt-get clean                               # Clean up the old archived packages
 sudo apt-get update --allow-releaseinfo-change   # Update the package list
 sudo apt-get -y dist-upgrade                     # Upgrade all the installed packages to their latest version
+sudo apt-get -y install xdotool xterm lxterminal
+install_kernel_headers
 
 # --------- Install new packages as Required ---------
 
@@ -166,13 +178,26 @@ else
 fi
 cd /home/pi
 
-#echo "----------------------------------------------------"
-#echo "---- Set up to load the new spi driver at boot -----"
-#echo "----------------------------------------------------"
-#echo
+echo "----------------------------------------------------"
+echo "---- Set up to load the new spi driver at boot -----"
+echo "----------------------------------------------------"
+echo
 
-# A new sed line will be required here when the driver name is changed
-# sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-3v20/whdriver-3v20\nsudo insmod whdriver-3v20.ko\nexit 0" /etc/rc.local
+if [ -f "/etc/rc.local" ]; then
+  sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-3v20/whdriver-3v20\nmake clean >/dev/null 2>&1\nmake\ninsmod whdriver-3v20.ko\nexit 0" /etc/rc.local
+else
+  sudo tee /etc/rc.local > /dev/null  << EOL
+#!/bin/sh -e
+cd /home/pi/winterhill/whsource-3v20/whdriver-3v20
+make clean >/dev/null 2>&1
+make
+insmod whdriver-3v20.ko
+exit 0
+EOL
+
+  sudo chmod a+x /etc/rc.local
+  sudo systemctl status rc-local.service
+fi
 
 echo "---------------------------------------------------"
 echo "---- Building the main WinterHill Application -----"

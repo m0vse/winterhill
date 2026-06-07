@@ -749,8 +749,8 @@ int main (int argc, char *argv[])
     }
     if (spi0interruptnumber || spi6interruptnumber)
     {
-        logit ("Disable with RPi Configuration or comment out in /boot/config.txt") ;
-        printf ("Disable with RPi Configuration or comment out in /boot/config.txt\r\n") ;
+        logit ("Disable with RPi Configuration or comment out in /boot/firmware/config.txt") ;
+        printf ("Disable with RPi Configuration or comment out in /boot/firmware/config.txt\r\n") ;
         printf ("\r\n") ;
         whexit (4) ;
     }
@@ -761,10 +761,10 @@ int main (int argc, char *argv[])
     }
     else
     {
-        logit  ("Cannot find the spi5 interrupt number - does /boot/config.text contain dtoverlay=spi5-1cs ?") ;
+        logit  ("Cannot find the spi5 interrupt number - does /boot/firmware/config.txt contain dtoverlay=spi5-1cs ?") ;
         logit  ("The driver needs to attach SPI0 / SPI6 interrupt handlers to this") ;
         logit  ("Note - spi5 may be shown as /dev/spidev3.0") ;
-        printf ("Cannot find the spi5 interrupt number - does /boot/config.text contain dtoverlay=spi5-1cs ?\r\n") ;
+        printf ("Cannot find the spi5 interrupt number - does /boot/firmware/config.txt contain dtoverlay=spi5-1cs ?\r\n") ;
         printf ("The driver needs to attach SPI0 / SPI6 interrupt handlers to this\r\n") ;
         printf ("Note - spi5 may be shown as /dev/spidev3.0 \r\n") ;
         printf ("\r\n") ;
@@ -4061,4 +4061,3 @@ void whexit (int32 reason)
 	usleep (3 * 1000 * 1000) ;
 	exit (reason) ;
 }	
-

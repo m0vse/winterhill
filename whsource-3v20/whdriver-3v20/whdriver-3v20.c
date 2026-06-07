@@ -32,6 +32,7 @@
 #include <linux/jiffies.h>
 #include <linux/io.h>
 #include <linux/string.h>
+#include <linux/version.h>
 
  #include <linux/timer.h>
  #include <linux/jiffies.h>
@@ -44,6 +45,12 @@ typedef unsigned char	uint8 ;
 
 #define DEVICE_NAME 	VERSION 	///< The device will appear at /dev/winterhill2v40 using this value
 #define CLASS_NAME  	"ebb"       ///< The device class -- this is a character device driver
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	#define WINTERHILL_CLASS_CREATE(name) class_create(name)
+#else
+	#define WINTERHILL_CLASS_CREATE(name) class_create(THIS_MODULE, name)
+#endif
 
 // spiA for PIC_A
 
@@ -261,7 +268,7 @@ static int __init winterhill_init (void)
  
 // Register the device class
 
-   winterhillClass = class_create ( CLASS_NAME);
+   winterhillClass = WINTERHILL_CLASS_CREATE (CLASS_NAME);
    if (IS_ERR(winterhillClass))						   		// Check for error and clean up if there is
    {
       unregister_chrdev (majorNumber, DEVICE_NAME);
@@ -582,9 +589,15 @@ static	int			toggleAB ;
  
 static ssize_t dev_write (struct file *filep, const char __user *buffer, size_t len, loff_t *offset)
 {
+	uint32 temp ;
+
 	if (len == 4)
 	{
-		spi5interruptnumber = * (uint32*) buffer ;
+		if (copy_from_user (&temp, buffer, sizeof(temp)))
+		{
+			return (-EFAULT) ;
+		}
+		spi5interruptnumber = temp ;
 	   	printk (KERN_INFO "winterhill: spi5interruptnumber (%d) provided\n", spi5interruptnumber) ;
 		return (0) ;
 	}
@@ -678,7 +691,7 @@ static int dev_release (struct inode *inodep, struct file *filep)
 
  static void __exit winterhill_exit (void)
  {
-    del_timer (&mytimer) ;
+    del_timer_sync (&mytimer) ;
     
     if (deviceopen)
  	{
@@ -730,7 +743,6 @@ static int dev_release (struct inode *inodep, struct file *filep)
    	}
    	
    	device_destroy		(winterhillClass, MKDEV(majorNumber, 0));	// remove the device
-   	class_unregister	(winterhillClass);            		       	// unregister the device class
    	class_destroy		(winterhillClass);                         	// remove the device class
    	unregister_chrdev	(majorNumber, DEVICE_NAME);             	// unregister the major number
    	printk				(KERN_INFO "winterhill: Driver removed from the kernel\n") ;

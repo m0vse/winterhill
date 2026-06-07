@@ -3,6 +3,7 @@
 # WinterHill 3v20 install file
 # G8GKQ 6 Mar 2021
 # Support for Debian Bookworm added by Phil Taylor M0VSE 14th Sep 2025
+# Support for Debian Trixie added by Phil Taylor M0VSE 7th Jun 2026
 
 # Winterhill for a 1920 x 1080 screen
 
@@ -41,6 +42,43 @@ fi
 
 cd /home/pi
 
+BOOT_CONFIG="/boot/config.txt"
+if [ -f "/boot/firmware/config.txt" ]; then
+  BOOT_CONFIG="/boot/firmware/config.txt"
+fi
+
+append_boot_config() {
+  echo -e "$1" | sudo tee -a "$BOOT_CONFIG" >/dev/null
+}
+
+set_boot_config() {
+  local pattern="$1"
+  local replacement="$2"
+
+  if sudo grep -Eq "$pattern" "$BOOT_CONFIG"; then
+    sudo sed -i -E "/$pattern/c\\$replacement" "$BOOT_CONFIG"
+  else
+    append_boot_config "$replacement"
+  fi
+}
+
+ensure_boot_config() {
+  local setting="$1"
+
+  if ! sudo grep -qxF "$setting" "$BOOT_CONFIG"; then
+    append_boot_config "$setting"
+  fi
+}
+
+install_kernel_headers() {
+  sudo apt-get -y install raspberrypi-kernel-headers && return 0
+  sudo apt-get -y install "linux-headers-$(uname -r)" && {
+    sudo apt-get -y install linux-headers-arm64 >/dev/null 2>&1 || true
+    return 0
+  }
+  sudo apt-get -y install linux-headers-arm64
+}
+
 echo "--------------------------------------------------------"
 echo "----- Disabling the raspberry ssh password warning -----"
 echo "--------------------------------------------------------"
@@ -51,7 +89,8 @@ echo "------------------------------------"
 echo "---- Loading required packages -----"
 echo "------------------------------------"
 echo
-sudo apt-get -y install xdotool xterm raspberrypi-kernel-headers
+sudo apt-get -y install xdotool xterm lxterminal
+install_kernel_headers
 
 echo "--------------------------------------------------------------"
 echo "---- Put the Desktop Toolbar at the bottom of the screen -----"
@@ -61,37 +100,38 @@ cd /home/pi/.config/lxpanel/LXDE-pi/panels
 sed -i "/^  edge=top/c\  edge=bottom" panel
 cd /home/pi
 
-echo "----------------------------------------------------"
-echo "---- Increasing gpu memory in /boot/config.txt -----"
-echo "----------------------------------------------------"
+echo "------------------------------------------------"
+echo "---- Increasing gpu memory in $BOOT_CONFIG -----"
+echo "------------------------------------------------"
 echo
-sudo bash -c 'echo -e "\n##Increase GPU Memory" >> /boot/config.txt'
-sudo bash -c 'echo -e "gpu_mem=128\n" >> /boot/config.txt'
+append_boot_config "\n##Increase GPU Memory"
+append_boot_config "gpu_mem=128\n"
 
 echo "-------------------------------------------------"
 echo "---- Set force_turbo for constant spi speed -----"
 echo "-------------------------------------------------"
 echo
-sudo bash -c 'echo -e "##Set force_turbo for constant spi speed" >> /boot/config.txt'
-sudo bash -c 'echo -e "force_turbo=1\n" >> /boot/config.txt'
+append_boot_config "##Set force_turbo for constant spi speed"
+append_boot_config "force_turbo=1\n"
 
 echo "--------------------------------------"
 echo "---- Set the spi ports correctly -----"
 echo "--------------------------------------"
 echo
-sudo sed -i "/^#dtparam=spi=on/c\dtparam=spi=off\ndtoverlay=spi5-1cs" /boot/config.txt
+set_boot_config "^#?dtparam=spi=on" "dtparam=spi=off"
+ensure_boot_config "dtoverlay=spi5-1cs"
 
 echo "----------------------------------------------"
 echo "---- Setting Framebuffer to 32 bit depth -----"
 echo "----------------------------------------------"
 echo
-sudo sed -i "/^dtoverlay=vc4-fkms-v3d/c\#dtoverlay=vc4-fkms-v3d" /boot/config.txt
+set_boot_config "^dtoverlay=vc4-fkms-v3d" "#dtoverlay=vc4-fkms-v3d"
 
 echo "------------------------------------------------------------"
 echo "---- Setting GUI to start with or without HDMI display -----"
 echo "------------------------------------------------------------"
 echo
-sudo sed -i "/^#hdmi_force_hotplug=1/c\hdmi_force_hotplug=1" /boot/config.txt
+set_boot_config "^#hdmi_force_hotplug=1" "hdmi_force_hotplug=1"
 
 
 echo "-------------------------------------------"
@@ -154,12 +194,14 @@ echo "---- Set up to load the spi driver at boot -----"
 echo "------------------------------------------------"
 echo
 if [ -f "/etc/rc.local" ]; then
-  sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-3v20/whdriver-3v20\nsudo insmod whdriver-3v20.ko\nexit 0" /etc/rc.local
+  sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-3v20/whdriver-3v20\nmake clean >/dev/null 2>&1\nmake\ninsmod whdriver-3v20.ko\nexit 0" /etc/rc.local
 else
   sudo tee /etc/rc.local > /dev/null  << EOL
 #!/bin/sh -e
 cd /home/pi/winterhill/whsource-3v20/whdriver-3v20
-sudo insmod whdriver-3v20.ko
+make clean >/dev/null 2>&1
+make
+insmod whdriver-3v20.ko
 exit 0
 EOL
 
@@ -239,5 +281,3 @@ sleep 1
 
 #sudo reboot now
 exit
-
-

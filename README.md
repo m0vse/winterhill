@@ -6,7 +6,7 @@ Development Build for the WinterHill Multi-channel DATV Receiver based on a Rasp
 
 The installation procedure is fully described in the Installation Manual that you will find here: https://wiki.batc.org.uk/WinterHill_Receiver_Project#Documentation
 
-The instructions are based on the old Raspios Buster Desktop which can be downloaded from here: https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2025-05-13/2025-05-13-raspios-bookworm-arm64.img.xz.
+The instructions are based on Raspberry Pi OS Desktop for Raspberry Pi 4/CM4.  Bookworm and Trixie images are supported; on newer images the installer writes Raspberry Pi firmware settings to `/boot/firmware/config.txt`.
 
 - Unzip the image (using 7zip as it is a .xz compressed file) and then transfer it to a Micro-SD Card using Win32diskimager https://sourceforge.net/projects/win32diskimager/
 
