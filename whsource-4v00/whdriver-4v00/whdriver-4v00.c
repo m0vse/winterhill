@@ -151,6 +151,8 @@ static struct task_struct*	sleeping_task2 ;
 
 static volatile	int32	timerticks ;
 static volatile	int32	spi5interruptnumber ;
+static volatile	int32	picAreadyinterruptnumber ;
+static volatile	int32	picBreadyinterruptnumber ;
 static volatile	int32	readstatus ;
 static volatile	uint32	debugA ;
 static volatile	uint32	debugB ;
@@ -322,6 +324,8 @@ static int __init winterhill_init (void)
 	rxbuffindexinB		= 0 ;
 	rxbuffindexoutB		= 0 ;
 	spi5interruptnumber = 0 ;
+	picAreadyinterruptnumber = 0 ;
+	picBreadyinterruptnumber = 0 ;
 	spiAreadyintno		= 0 ;
 	spiBreadyintno		= 0 ;
 	spiAreadygpio		= 0 ;
@@ -432,7 +436,15 @@ static int dev_open (struct inode *inodep, struct file *filep)
 		
 // set up the interrupts	
 
-		spiAreadyintno = ready_gpio_to_irq (SPIRDY_A, "whdriver-4v00_spirdy_a", &spiAreadygpio);
+		if (picAreadyinterruptnumber)
+		{
+			spiAreadyintno = picAreadyinterruptnumber ;
+			printk (KERN_INFO "winterhill: SPIRDY_A IRQ number (%d) provided\n", spiAreadyintno);
+		}
+		else
+		{
+			spiAreadyintno = ready_gpio_to_irq (SPIRDY_A, "whdriver-4v00_spirdy_a", &spiAreadygpio);
+		}
    		printk (KERN_INFO "winterhill: SPIRDY_A is mapped to IRQ: %d\n", spiAreadyintno);
 		if (spiAreadyintno < 0)
 		{
@@ -456,7 +468,15 @@ static int dev_open (struct inode *inodep, struct file *filep)
 		}
 		spiAreadyirq = 1 ;
 
-		spiBreadyintno = ready_gpio_to_irq (SPIRDY_B, "whdriver-4v00_spirdy_b", &spiBreadygpio);
+		if (picBreadyinterruptnumber)
+		{
+			spiBreadyintno = picBreadyinterruptnumber ;
+			printk (KERN_INFO "winterhill: SPIRDY_B IRQ number (%d) provided\n", spiBreadyintno);
+		}
+		else
+		{
+			spiBreadyintno = ready_gpio_to_irq (SPIRDY_B, "whdriver-4v00_spirdy_b", &spiBreadygpio);
+		}
    		printk (KERN_INFO "winterhill: SPIRDY_B is mapped to IRQ: %d\n", spiBreadyintno);
 		if (spiBreadyintno < 0)
 		{
@@ -700,16 +720,30 @@ static	int			toggleAB ;
  
 static ssize_t dev_write (struct file *filep, const char __user *buffer, size_t len, loff_t *offset)
 {
-	uint32 temp ;
+	uint32 temp [3] ;
 
 	if (len == 4)
+	{
+		if (copy_from_user (&temp[0], buffer, sizeof(temp[0])))
+		{
+			return (-EFAULT) ;
+		}
+		spi5interruptnumber = temp[0] ;
+		printk (KERN_INFO "winterhill: spi5interruptnumber (%d) provided\n", spi5interruptnumber) ;
+		return (sizeof(temp[0])) ;
+	}
+	else if (len == sizeof(temp))
 	{
 		if (copy_from_user (&temp, buffer, sizeof(temp)))
 		{
 			return (-EFAULT) ;
 		}
-		spi5interruptnumber = temp ;
-	   	printk (KERN_INFO "winterhill: spi5interruptnumber (%d) provided\n", spi5interruptnumber) ;
+		spi5interruptnumber = temp[0] ;
+		picAreadyinterruptnumber = temp[1] ;
+		picBreadyinterruptnumber = temp[2] ;
+		printk (KERN_INFO "winterhill: spi5interruptnumber (%d) provided\n", spi5interruptnumber) ;
+		printk (KERN_INFO "winterhill: picAreadyinterruptnumber (%d) provided\n", picAreadyinterruptnumber) ;
+		printk (KERN_INFO "winterhill: picBreadyinterruptnumber (%d) provided\n", picBreadyinterruptnumber) ;
 		return (sizeof(temp)) ;
 	}
 	else
@@ -807,6 +841,8 @@ static int dev_release (struct inode *inodep, struct file *filep)
 		spiBptr = 0 ;
 		spiAptr = 0 ;
 		spi5interruptnumber = 0 ;
+		picAreadyinterruptnumber = 0 ;
+		picBreadyinterruptnumber = 0 ;
    		deviceopen 			= 0 ;
 	}
 

@@ -798,14 +798,14 @@ int main (int argc, char *argv[])
 // write spi5interruptnumber to the driver
 
     *(uint32*)buff = spi5interruptnumber ;
-    write (fd, buff, 4) ;
+    write (whfd, buff, 4) ;
 
 // close and re-open the driver
 
 	close (whfd) ;
     whfd = open (temps, O_RDWR) ;
     *(uint32*)buff = spi5interruptnumber ;			// do it again for good measure
-    write (fd, buff, 4) ;
+    write (whfd, buff, 4) ;
 
   
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
