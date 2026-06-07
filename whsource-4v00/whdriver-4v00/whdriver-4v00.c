@@ -26,6 +26,8 @@
 #include <linux/fs.h>             // Header for the Linux file system support
 #include <linux/uaccess.h>        // Required for the copy to user function
 #include <linux/gpio.h>           // Required for the GPIO functions
+#include <linux/gpio/consumer.h>
+#include <linux/gpio/driver.h>
 #include <linux/interrupt.h>      // Required for the IRQ code
 #include <linux/delay.h>      	
 #include <linux/timer.h>
@@ -167,6 +169,11 @@ static volatile int		count2 ;
 static volatile int		deviceopen ;
 static volatile int	 	spiAreadyintno ;		/// interrupt number for PIC_A READY 
 static volatile int	 	spiBreadyintno ;		/// interrupt number for PIC_B READY 
+static volatile int		spiAreadygpio ;
+static volatile int		spiBreadygpio ;
+static volatile int		spiAreadyirq ;
+static volatile int		spiBreadyirq ;
+static volatile int		spi5irq ;
 static volatile int		majorNumber;            ///< Stores the device number -- determined automatically
 static volatile int		numberOpens = 0;      	///< Counts the number of times the device is opened
 static struct class*  	winterhillClass  = NULL; 	///< The device-driver class struct pointer
@@ -212,6 +219,7 @@ static irqreturn_t picready_handler (int irq, void *dev_id);
 static irqreturn_t spi_handler (int irq, void *dev_id);
 
 ///static uint32			gpioget 			(uint32) ;
+static int					ready_gpio_to_irq	(uint32, const char*, volatile int*);
 static void					gpioset 			(uint32, uint32) ;
 static void					gpioconfig 			(uint32, uint32) ;
 static struct timer_list 	mytimer ;
@@ -316,6 +324,13 @@ static int __init winterhill_init (void)
 	rxbuffindexinB		= 0 ;
 	rxbuffindexoutB		= 0 ;
 	spi5interruptnumber = 0 ;
+	spiAreadyintno		= 0 ;
+	spiBreadyintno		= 0 ;
+	spiAreadygpio		= 0 ;
+	spiBreadygpio		= 0 ;
+	spiAreadyirq		= 0 ;
+	spiBreadyirq		= 0 ;
+	spi5irq				= 0 ;
 	timerticks			= 0 ;
 
 // initialise the 100ms timer
@@ -419,8 +434,14 @@ static int dev_open (struct inode *inodep, struct file *filep)
 		
 // set up the interrupts	
 
-	   	spiAreadyintno = gpio_to_irq (SPIRDY_A);
+		spiAreadyintno = ready_gpio_to_irq (SPIRDY_A, "whdriver-4v00_spirdy_a", &spiAreadygpio);
    		printk (KERN_INFO "winterhill: SPIRDY_A is mapped to IRQ: %d\n", spiAreadyintno);
+		if (spiAreadyintno < 0)
+		{
+			printk (KERN_ALERT "winterhill: Failed to map SPIRDY_A GPIO %d to IRQ: %d\n", SPIRDY_A, spiAreadyintno);
+			result = spiAreadyintno ;
+			goto open_cleanup;
+		}
 	   	result = request_irq						// This next call requests an interrupt line
   		(
 			spiAreadyintno,       					// The interrupt number requested
@@ -430,9 +451,21 @@ static int dev_open (struct inode *inodep, struct file *filep)
 	        NULL                 					// The *dev_id for shared interrupt lines, NULL is okay
     	) ;
 	    printk (KERN_INFO "winterhill: The SPIRDY_A interrupt request result is: %d\n", result);
+		if (result)
+		{
+			printk (KERN_ALERT "winterhill: Failed to request SPIRDY_A IRQ %d: %d\n", spiAreadyintno, result);
+			goto open_cleanup;
+		}
+		spiAreadyirq = 1 ;
 
-	   	spiBreadyintno = gpio_to_irq (SPIRDY_B);
+		spiBreadyintno = ready_gpio_to_irq (SPIRDY_B, "whdriver-4v00_spirdy_b", &spiBreadygpio);
    		printk (KERN_INFO "winterhill: SPIRDY_B is mapped to IRQ: %d\n", spiBreadyintno);
+		if (spiBreadyintno < 0)
+		{
+			printk (KERN_ALERT "winterhill: Failed to map SPIRDY_B GPIO %d to IRQ: %d\n", SPIRDY_B, spiBreadyintno);
+			result = spiBreadyintno ;
+			goto open_cleanup;
+		}
 	   	result = request_irq						// This next call requests an interrupt line
   		(
 			spiBreadyintno,       					// The interrupt number requested
@@ -442,6 +475,12 @@ static int dev_open (struct inode *inodep, struct file *filep)
 	        NULL                 					// The *dev_id for shared interrupt lines, NULL is okay
     	) ;
 	    printk (KERN_INFO "winterhill: The SPIRDY_B interrupt request result is: %d\n", result);
+		if (result)
+		{
+			printk (KERN_ALERT "winterhill: Failed to request SPIRDY_B IRQ %d: %d\n", spiBreadyintno, result);
+			goto open_cleanup;
+		}
+		spiBreadyirq = 1 ;
 
    		printk (KERN_INFO "winterhill: SPI is mapped to IRQ: %d\n", spi5interruptnumber);
 	   	result = request_irq						// This next call requests an interrupt line
@@ -453,6 +492,12 @@ static int dev_open (struct inode *inodep, struct file *filep)
 	        DEVICE_NAME         					// The *dev_id for shared interrupt lines, NULL is okay
     	) ;
 	    printk (KERN_INFO "winterhill: The SPI interrupt request result is: %d\n", result);
+		if (result)
+		{
+			printk (KERN_ALERT "winterhill: Failed to request SPI IRQ %d: %d\n", spi5interruptnumber, result);
+			goto open_cleanup;
+		}
+		spi5irq = 1 ;
 
 		stateA = 1 ;
 		stateB = 1 ;
@@ -466,8 +511,69 @@ static int dev_open (struct inode *inodep, struct file *filep)
 		spiB [SPI_CS] |= INTD_SPI | INTR_SPI ;		// enable INTD and INTR interrupts
 
 	    deviceopen = 1 ;
+	    goto open_done ;
+
+open_cleanup:
+		if (spi5irq)
+		{
+			free_irq (spi5interruptnumber, DEVICE_NAME);
+			spi5irq = 0 ;
+		}
+		if (spiBreadyirq)
+		{
+			free_irq (spiBreadyintno, NULL);
+			spiBreadyirq = 0 ;
+		}
+		if (spiAreadyirq)
+		{
+			free_irq (spiAreadyintno, NULL);
+			spiAreadyirq = 0 ;
+		}
+		if (spiBreadygpio)
+		{
+			gpio_free (SPIRDY_B);
+			spiBreadygpio = 0 ;
+		}
+		if (spiAreadygpio)
+		{
+			gpio_free (SPIRDY_A);
+			spiAreadygpio = 0 ;
+		}
+		gpioconfig (SPISS_B,	FSEL_INPUT) ;
+		gpioconfig (SPICLK_B,	FSEL_INPUT) ;
+		gpioconfig (SPIMISO_B,	FSEL_INPUT) ;
+		gpioconfig (SPIRDY_B,	FSEL_INPUT) ;
+		gpioconfig (SPISS_A,	FSEL_INPUT) ;
+		gpioconfig (SPICLK_A,	FSEL_INPUT) ;
+		gpioconfig (SPIMISO_A,	FSEL_INPUT) ;
+		gpioconfig (SPIRDY_A,	FSEL_INPUT) ;
+		if (pactl)
+		{
+			iounmap (pactl) ;
+			pactl = 0 ;
+		}
+		if (spiB)
+		{
+			iounmap (spiB) ;
+			spiB = 0 ;
+		}
+		if (spiA)
+		{
+			iounmap (spiA) ;
+			spiA = 0 ;
+		}
+		if (gpio)
+		{
+			iounmap (gpio) ;
+			gpio = 0 ;
+		}
+		spiBptr = 0 ;
+		spiAptr = 0 ;
+		spi5interruptnumber = 0 ;
+		return (result) ;
 	}
 
+open_done:
 
 	if (spi5interruptnumber == 0)
 	{
@@ -606,7 +712,7 @@ static ssize_t dev_write (struct file *filep, const char __user *buffer, size_t 
 		}
 		spi5interruptnumber = temp ;
 	   	printk (KERN_INFO "winterhill: spi5interruptnumber (%d) provided\n", spi5interruptnumber) ;
-		return (0) ;
+		return (sizeof(temp)) ;
 	}
 	else
 	{
@@ -653,9 +759,21 @@ static int dev_release (struct inode *inodep, struct file *filep)
 		spiA[SPI_CS] &= ~(INTD_SPI | INTR_SPI | (3 * CLEAR_SPI) | TA_SPI) ;	// disable INTD and INTR interrupts and TA
 		msleep (100) ;
 
-		free_irq (spi5interruptnumber, DEVICE_NAME);    		// Free the IRQ number
-		free_irq (spiBreadyintno, NULL);            // Free the IRQ number, no *dev_id required in this case
-   		free_irq (spiAreadyintno, NULL);            // Free the IRQ number, no *dev_id required in this case
+		if (spi5irq)
+		{
+			free_irq (spi5interruptnumber, DEVICE_NAME);		// Free the IRQ number
+			spi5irq = 0 ;
+		}
+		if (spiBreadyirq)
+		{
+			free_irq (spiBreadyintno, NULL);					// Free the IRQ number, no *dev_id required in this case
+			spiBreadyirq = 0 ;
+		}
+		if (spiAreadyirq)
+		{
+			free_irq (spiAreadyintno, NULL);					// Free the IRQ number, no *dev_id required in this case
+			spiAreadyirq = 0 ;
+		}
 
 // make all IO pins inputs
 
@@ -668,6 +786,17 @@ static int dev_release (struct inode *inodep, struct file *filep)
 		gpioconfig (SPICLK_A,	FSEL_INPUT) ;
 		gpioconfig (SPIMISO_A,	FSEL_INPUT) ;
 		gpioconfig (SPIRDY_A,	FSEL_INPUT) ;
+
+		if (spiBreadygpio)
+		{
+			gpio_free (SPIRDY_B) ;
+			spiBreadygpio = 0 ;
+		}
+		if (spiAreadygpio)
+		{
+			gpio_free (SPIRDY_A) ;
+			spiAreadygpio = 0 ;
+		}
 
 		iounmap (pactl) ;
 		iounmap (spiB) ;
@@ -729,10 +858,32 @@ static int dev_release (struct inode *inodep, struct file *filep)
 		msleep (100) ;
 
 	   	printk (KERN_INFO "winterhill: AAA\n");
-		free_irq (spi5interruptnumber, DEVICE_NAME);// Free the IRQ number
-		free_irq (spiBreadyintno, NULL);            // Free the IRQ number, no *dev_id required in this case
-   		free_irq (spiAreadyintno, NULL);            // Free the IRQ number, no *dev_id required in this case
+		if (spi5irq)
+		{
+			free_irq (spi5interruptnumber, DEVICE_NAME);// Free the IRQ number
+			spi5irq = 0 ;
+		}
+		if (spiBreadyirq)
+		{
+			free_irq (spiBreadyintno, NULL);            // Free the IRQ number, no *dev_id required in this case
+			spiBreadyirq = 0 ;
+		}
+		if (spiAreadyirq)
+		{
+			free_irq (spiAreadyintno, NULL);            // Free the IRQ number, no *dev_id required in this case
+			spiAreadyirq = 0 ;
+		}
 	   	printk (KERN_INFO "winterhill: BBB\n");
+		if (spiBreadygpio)
+		{
+			gpio_free (SPIRDY_B) ;
+			spiBreadygpio = 0 ;
+		}
+		if (spiAreadygpio)
+		{
+			gpio_free (SPIRDY_A) ;
+			spiAreadygpio = 0 ;
+		}
 		iounmap (pactl) ;
 		iounmap (spiB) ;
 		iounmap (spiA) ;
@@ -975,6 +1126,94 @@ static irqreturn_t spi_handler (int irq, void *dev_id)
 }
 
         
+static int ready_gpiochip_match (struct gpio_chip *chip, void *data)
+{
+	uint32 bcmportno = *(uint32*)data ;
+
+	if ((chip->label == NULL) || (chip->ngpio <= bcmportno))
+	{
+		return 0 ;
+	}
+
+	if (strstr (chip->label, "pinctrl-bcm") || strstr (chip->label, "brcm"))
+	{
+		return 1 ;
+	}
+
+	return 0 ;
+}
+
+
+static int ready_gpio_to_irq (uint32 bcmportno, const char *label, volatile int *gpio_requested)
+{
+	int					result ;
+	struct gpio_chip*	chip ;
+	struct gpio_desc*	desc ;
+
+	*gpio_requested = 0 ;
+
+	result = gpio_request (bcmportno, label) ;
+	if (result == 0)
+	{
+		*gpio_requested = 1 ;
+		result = gpio_direction_input (bcmportno) ;
+		if (result)
+		{
+			printk (KERN_ALERT "winterhill: Failed to set GPIO %d as input: %d\n", bcmportno, result);
+			gpio_free (bcmportno) ;
+			*gpio_requested = 0 ;
+			return result ;
+		}
+
+		result = gpio_to_irq (bcmportno) ;
+		if (result >= 0)
+		{
+			return result ;
+		}
+
+		printk (KERN_INFO "winterhill: Legacy gpio_to_irq failed for GPIO %d: %d\n", bcmportno, result);
+		gpio_free (bcmportno) ;
+		*gpio_requested = 0 ;
+	}
+	else
+	{
+		printk (KERN_INFO "winterhill: Legacy gpio_request failed for GPIO %d: %d\n", bcmportno, result);
+	}
+
+	chip = gpiochip_find (&bcmportno, ready_gpiochip_match) ;
+	if (chip == NULL)
+	{
+		printk (KERN_ALERT "winterhill: Failed to find Raspberry Pi GPIO chip for BCM GPIO %d\n", bcmportno);
+		return result ;
+	}
+
+	printk (KERN_INFO "winterhill: Found GPIO chip %s for BCM GPIO %d\n", chip->label, bcmportno);
+
+	desc = gpiochip_get_desc (chip, bcmportno) ;
+	if (IS_ERR(desc))
+	{
+		result = PTR_ERR(desc) ;
+		printk (KERN_ALERT "winterhill: Failed to get GPIO descriptor for BCM GPIO %d: %d\n", bcmportno, result);
+		return result ;
+	}
+
+	result = gpiod_direction_input (desc) ;
+	if (result)
+	{
+		printk (KERN_ALERT "winterhill: Failed to set BCM GPIO %d descriptor as input: %d\n", bcmportno, result);
+		return result ;
+	}
+
+	result = gpiod_to_irq (desc) ;
+	if (result < 0)
+	{
+		printk (KERN_ALERT "winterhill: Failed to map BCM GPIO %d descriptor to IRQ: %d\n", bcmportno, result);
+	}
+
+	return result ;
+}
+
+
 static void gpioconfig (uint32 bcmportno, uint32 altfunction)
 {
     uint32                    index ;
