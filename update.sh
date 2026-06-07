@@ -21,6 +21,20 @@ install_kernel_headers() {
   sudo apt-get -y install linux-headers-arm64
 }
 
+BOOT_CONFIG="/boot/config.txt"
+if [ -f "/boot/firmware/config.txt" ]; then
+  BOOT_CONFIG="/boot/firmware/config.txt"
+fi
+BOOT_OVERLAYS="$(dirname "$BOOT_CONFIG")/overlays"
+
+ensure_boot_config() {
+  local setting="$1"
+
+  if ! sudo grep -qxF "$setting" "$BOOT_CONFIG"; then
+    echo "$setting" | sudo tee -a "$BOOT_CONFIG" >/dev/null
+  fi
+}
+
 cd /home/pi
 
 ## Check which update to load
@@ -98,7 +112,7 @@ sudo dpkg --configure -a                         # Make sure that all the packag
 sudo apt-get clean                               # Clean up the old archived packages
 sudo apt-get update --allow-releaseinfo-change   # Update the package list
 sudo apt-get -y dist-upgrade                     # Upgrade all the installed packages to their latest version
-sudo apt-get -y install xdotool xterm lxterminal
+sudo apt-get -y install xdotool xterm lxterminal device-tree-compiler
 install_kernel_headers
 
 # --------- Install new packages as Required ---------
@@ -152,6 +166,15 @@ if [ ! -f whdriver-4v00.ko ]; then
   echo UPDATE whdriver-4v00.ko was not found in the driver directory >> /home/pi/winterhill/whlog.txt
   exit
 fi
+if [ ! -f whdriver-4v00.dtbo ]; then
+  echo "------------------------------------------"
+  echo "- WinterHill Driver overlay was not built -"
+  echo "------------------------------------------"
+  echo UPDATE whdriver-4v00.dtbo was not found in the driver directory >> /home/pi/winterhill/whlog.txt
+  exit
+fi
+sudo cp whdriver-4v00.dtbo "$BOOT_OVERLAYS"/whdriver-4v00.dtbo
+ensure_boot_config "dtoverlay=whdriver-4v00"
 
 # Remove any old drivers, and the current one  
 # Add current driver to this list after a driver update

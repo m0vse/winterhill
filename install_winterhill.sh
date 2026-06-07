@@ -46,6 +46,7 @@ BOOT_CONFIG="/boot/config.txt"
 if [ -f "/boot/firmware/config.txt" ]; then
   BOOT_CONFIG="/boot/firmware/config.txt"
 fi
+BOOT_OVERLAYS="$(dirname "$BOOT_CONFIG")/overlays"
 
 append_boot_config() {
   echo -e "$1" | sudo tee -a "$BOOT_CONFIG" >/dev/null
@@ -89,7 +90,7 @@ echo "------------------------------------"
 echo "---- Loading required packages -----"
 echo "------------------------------------"
 echo
-sudo apt-get -y install xdotool xterm lxterminal
+sudo apt-get -y install xdotool xterm lxterminal device-tree-compiler
 install_kernel_headers
 
 echo "--------------------------------------------------------------"
@@ -120,6 +121,7 @@ echo "--------------------------------------"
 echo
 set_boot_config "^#?dtparam=spi=on" "dtparam=spi=off"
 ensure_boot_config "dtoverlay=spi5-1cs"
+ensure_boot_config "dtoverlay=whdriver-4v00"
 
 echo "----------------------------------------------"
 echo "---- Setting Framebuffer to 32 bit depth -----"
@@ -167,6 +169,14 @@ if [ ! -f whdriver-4v00.ko ]; then
   echo INSTALL whdriver-4v00.ko was not found in the driver directory >> /home/pi/winterhill/whlog.txt
   exit
 fi
+if [ ! -f whdriver-4v00.dtbo ]; then
+  echo "------------------------------------------"
+  echo "- WinterHill Driver overlay was not built -"
+  echo "------------------------------------------"
+  echo INSTALL whdriver-4v00.dtbo was not found in the driver directory >> /home/pi/winterhill/whlog.txt
+  exit
+fi
+sudo cp whdriver-4v00.dtbo "$BOOT_OVERLAYS"/whdriver-4v00.dtbo
 
 sudo rmmod whdriver-3v20.ko >/dev/null 2>/dev/null
 sudo rmmod whdriver-4v00.ko >/dev/null 2>/dev/null

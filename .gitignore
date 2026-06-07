@@ -19,6 +19,7 @@ PIC-3v20/whpicprog-3v20
 whsource-4v00/whdriver-4v00/Module.symvers
 whsource-4v00/whdriver-4v00/modules.order
 whsource-4v00/whdriver-4v00/whdriver-4v00.ko
+whsource-4v00/whdriver-4v00/whdriver-4v00.dtbo
 whsource-4v00/whdriver-4v00/whdriver-4v00.mod
 whsource-4v00/whdriver-4v00/whdriver-4v00.mod.c
 whsource-4v00/whmain-4v00/winterhill-4v00

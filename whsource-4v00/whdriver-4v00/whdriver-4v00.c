@@ -31,6 +31,8 @@
 #include <linux/timer.h>
 #include <linux/jiffies.h>
 #include <linux/io.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/string.h>
 #include <linux/version.h>
 
@@ -218,6 +220,7 @@ static irqreturn_t picready_handler (int irq, void *dev_id);
 static irqreturn_t spi_handler (int irq, void *dev_id);
 
 ///static uint32			gpioget 			(uint32) ;
+static int					dt_ready_irq		(uint32, const char*, int);
 static void					gpioset 			(uint32, uint32) ;
 static void					gpioconfig 			(uint32, uint32) ;
 static struct timer_list 	mytimer ;
@@ -440,7 +443,12 @@ static int dev_open (struct inode *inodep, struct file *filep)
 		}
 		else
 		{
-			spiAreadyintno = gpio_to_irq (SPIRDY_A);
+			spiAreadyintno = dt_ready_irq (SPIRDY_A, "SPIRDY_A", 0);
+			if (spiAreadyintno < 0)
+			{
+				printk (KERN_INFO "winterhill: Falling back to legacy gpio_to_irq for SPIRDY_A\n");
+				spiAreadyintno = gpio_to_irq (SPIRDY_A);
+			}
 		}
 
    		printk (KERN_INFO "winterhill: SPIRDY_A is mapped to IRQ: %d\n", spiAreadyintno);
@@ -473,7 +481,12 @@ static int dev_open (struct inode *inodep, struct file *filep)
 		}
 		else
 		{
-			spiBreadyintno = gpio_to_irq (SPIRDY_B);
+			spiBreadyintno = dt_ready_irq (SPIRDY_B, "SPIRDY_B", 1);
+			if (spiBreadyintno < 0)
+			{
+				printk (KERN_INFO "winterhill: Falling back to legacy gpio_to_irq for SPIRDY_B\n");
+				spiBreadyintno = gpio_to_irq (SPIRDY_B);
+			}
 		}
    		printk (KERN_INFO "winterhill: SPIRDY_B is mapped to IRQ: %d\n", spiBreadyintno);
 		if (spiBreadyintno < 0)
@@ -1132,6 +1145,34 @@ static irqreturn_t spi_handler (int irq, void *dev_id)
 }
 
         
+static int dt_ready_irq (uint32 bcmportno, const char *name, int index)
+{
+	int					irq ;
+	struct device_node*	node ;
+
+	node = of_find_compatible_node (NULL, NULL, "winterhill,whdriver-4v00");
+	if (node == NULL)
+	{
+		printk (KERN_INFO "winterhill: Device tree node not found for %s GPIO %d\n", name, bcmportno);
+		return -ENOENT ;
+	}
+
+	irq = of_irq_get (node, index);
+	of_node_put (node);
+
+	if (irq < 0)
+	{
+		printk (KERN_ALERT "winterhill: Device tree IRQ lookup failed for %s GPIO %d: %d\n", name, bcmportno, irq);
+	}
+	else
+	{
+		printk (KERN_INFO "winterhill: Device tree mapped %s GPIO %d to IRQ %d\n", name, bcmportno, irq);
+	}
+
+	return irq ;
+}
+
+
 static void gpioconfig (uint32 bcmportno, uint32 altfunction)
 {
     uint32                    index ;
