@@ -52,6 +52,13 @@ typedef unsigned char	uint8 ;
 	#define WINTERHILL_CLASS_CREATE(name) class_create(THIS_MODULE, name)
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0) || \
+	(LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 83) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0))
+	#define WINTERHILL_TIMER_DELETE_SYNC(timer) timer_delete_sync(timer)
+#else
+	#define WINTERHILL_TIMER_DELETE_SYNC(timer) del_timer_sync(timer)
+#endif
+
 // spiA for PIC_A
 
 #define SPISS_A             8                                       // select 	on BCMGPIO  8 J:24 (active low)
@@ -691,7 +698,7 @@ static int dev_release (struct inode *inodep, struct file *filep)
 
  static void __exit winterhill_exit (void)
  {
-    del_timer_sync (&mytimer) ;
+    WINTERHILL_TIMER_DELETE_SYNC (&mytimer) ;
     
     if (deviceopen)
  	{
