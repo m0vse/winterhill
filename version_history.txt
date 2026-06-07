@@ -1,3 +1,6 @@
+202606072
+Restore simple boot-time driver load
+
 202606071
 Rename WinterHill release to 4v00
 

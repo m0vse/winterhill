@@ -192,15 +192,12 @@ echo "----------------------------------------------------"
 echo
 
 if [ -f "/etc/rc.local" ]; then
-  sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-4v00/whdriver-4v00 || exit 1\nmake clean >/dev/null 2>&1\nmake\n[ -f whdriver-4v00.ko ] || exit 1\ninsmod whdriver-4v00.ko\nexit 0" /etc/rc.local
+  sudo sed -i "/^exit 0/c\cd /home/pi/winterhill/whsource-4v00/whdriver-4v00\nsudo insmod whdriver-4v00.ko\nexit 0" /etc/rc.local
 else
   sudo tee /etc/rc.local > /dev/null  << EOL
 #!/bin/sh -e
-cd /home/pi/winterhill/whsource-4v00/whdriver-4v00 || exit 1
-make clean >/dev/null 2>&1
-make
-[ -f whdriver-4v00.ko ] || exit 1
-insmod whdriver-4v00.ko
+cd /home/pi/winterhill/whsource-4v00/whdriver-4v00
+sudo insmod whdriver-4v00.ko
 exit 0
 EOL
 
