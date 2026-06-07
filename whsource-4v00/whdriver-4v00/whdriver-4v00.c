@@ -26,8 +26,6 @@
 #include <linux/fs.h>             // Header for the Linux file system support
 #include <linux/uaccess.h>        // Required for the copy to user function
 #include <linux/gpio.h>           // Required for the GPIO functions
-#include <linux/gpio/consumer.h>
-#include <linux/gpio/driver.h>
 #include <linux/interrupt.h>      // Required for the IRQ code
 #include <linux/delay.h>      	
 #include <linux/timer.h>
@@ -1126,29 +1124,9 @@ static irqreturn_t spi_handler (int irq, void *dev_id)
 }
 
         
-static int ready_gpiochip_match (struct gpio_chip *chip, void *data)
-{
-	uint32 bcmportno = *(uint32*)data ;
-
-	if ((chip->label == NULL) || (chip->ngpio <= bcmportno))
-	{
-		return 0 ;
-	}
-
-	if (strstr (chip->label, "pinctrl-bcm") || strstr (chip->label, "brcm"))
-	{
-		return 1 ;
-	}
-
-	return 0 ;
-}
-
-
 static int ready_gpio_to_irq (uint32 bcmportno, const char *label, volatile int *gpio_requested)
 {
-	int					result ;
-	struct gpio_chip*	chip ;
-	struct gpio_desc*	desc ;
+	int		result ;
 
 	*gpio_requested = 0 ;
 
@@ -1171,45 +1149,13 @@ static int ready_gpio_to_irq (uint32 bcmportno, const char *label, volatile int 
 			return result ;
 		}
 
-		printk (KERN_INFO "winterhill: Legacy gpio_to_irq failed for GPIO %d: %d\n", bcmportno, result);
+		printk (KERN_ALERT "winterhill: Failed to map GPIO %d to IRQ: %d\n", bcmportno, result);
 		gpio_free (bcmportno) ;
 		*gpio_requested = 0 ;
-	}
-	else
-	{
-		printk (KERN_INFO "winterhill: Legacy gpio_request failed for GPIO %d: %d\n", bcmportno, result);
-	}
-
-	chip = gpiochip_find (&bcmportno, ready_gpiochip_match) ;
-	if (chip == NULL)
-	{
-		printk (KERN_ALERT "winterhill: Failed to find Raspberry Pi GPIO chip for BCM GPIO %d\n", bcmportno);
 		return result ;
 	}
 
-	printk (KERN_INFO "winterhill: Found GPIO chip %s for BCM GPIO %d\n", chip->label, bcmportno);
-
-	desc = gpiochip_get_desc (chip, bcmportno) ;
-	if (IS_ERR(desc))
-	{
-		result = PTR_ERR(desc) ;
-		printk (KERN_ALERT "winterhill: Failed to get GPIO descriptor for BCM GPIO %d: %d\n", bcmportno, result);
-		return result ;
-	}
-
-	result = gpiod_direction_input (desc) ;
-	if (result)
-	{
-		printk (KERN_ALERT "winterhill: Failed to set BCM GPIO %d descriptor as input: %d\n", bcmportno, result);
-		return result ;
-	}
-
-	result = gpiod_to_irq (desc) ;
-	if (result < 0)
-	{
-		printk (KERN_ALERT "winterhill: Failed to map BCM GPIO %d descriptor to IRQ: %d\n", bcmportno, result);
-	}
-
+	printk (KERN_ALERT "winterhill: Failed to request GPIO %d: %d\n", bcmportno, result);
 	return result ;
 }
 
